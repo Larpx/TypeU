@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Larpx.PersonalTools.TypeU.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TypeU.Core\TypeU.Core.csproj" />
+    <ProjectReference Include="..\TypeU.Models\TypeU.Models.csproj" />
+    <ProjectReference Include="..\TypeU.Network\TypeU.Network.csproj" />
+    <ProjectReference Include="..\TypeU.Data\TypeU.Data.csproj" />
+    <ProjectReference Include="..\TypeU.Services\TypeU.Services.csproj" />
+  </ItemGroup>
+
+</Project>

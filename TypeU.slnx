@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TypeU.Core/TypeU.Core.csproj" />
+    <Project Path="src/TypeU.Data/TypeU.Data.csproj" />
+    <Project Path="src/TypeU.Models/TypeU.Models.csproj" />
+    <Project Path="src/TypeU.Network/TypeU.Network.csproj" />
+    <Project Path="src/TypeU.Services/TypeU.Services.csproj" />
+    <Project Path="src/TypeU.Student.GUI/TypeU.Student.GUI.csproj" />
+    <Project Path="src/TypeU.Teacher.GUI/TypeU.Teacher.GUI.csproj" />
+    <Project Path="src/TypeU.Tests/TypeU.Tests.csproj" />
+  </Folder>
+</Solution>

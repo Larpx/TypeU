@@ -1,0 +1,220 @@
+# TypeU 局域网打字考试系统 - 项目方案 Spec
+
+> 本文档为 TypeU 项目的总体技术方案规格。最终正式版将同步至项目 `docs/` 目录下作为 `项目方案.md`。
+
+## Why
+
+大学机房打字教学与考核仍依赖单机版软件，缺乏统一管控、实时监控与防作弊能力。TypeU 通过局域网互联，让教师端可一键管控 30-100 个学生端的全流程考试，并在通信、设备绑定、输入行为三个层面建立防作弊体系。本方案明确系统架构、模块边界、协议格式、数据模型与实施路径，作为后续开发基准。
+
+## What Changes
+
+- 新建 TypeU 解决方案，采用 .NET 10 + Avalonia UI + Native AOT 跨平台架构
+- 划分 8 个项目层（Core / Models / Services / Network / Data / Teacher.GUI / Student.GUI / Tests）
+- 实现教师端（服务端）与学生端（客户端）双端应用
+- 设计自定义二进制通信协议（Magic | Version | MsgType | Timestamp | Nonce | DataLen | Data | Signature | Tail）
+- 教师端定时同步时间给所有学生端，确保考试时间一致，防止通过修改时间作弊
+- 实现三层防作弊：屏蔽复制粘贴 + 输入时间差检测 + 速度异常监控
+- 实现设备指纹绑定（CPU ID + MAC + 硬盘序列号）+ 2 小时自动过期
+- 实现通信安全：AES 加密 + HMAC-SHA256 签名 + 时间戳/Nonce 防重放
+- 实现题库管理（中文/英文/代码，TXT 导入）与三种考试模式（定篇测速/限时冲刺/纠错模式）
+- 实现成绩自动收卷与 Excel 导出（MiniExcel）
+- 实现教师端监控看板与学生端沉浸式考试界面
+- 双端自动发现机制，减少手动配置的繁琐操作
+
+## Impact
+
+- Affected specs: 无（全新项目）
+- Affected code: 全新代码库，初始结构如下
+  ```
+  src/
+  ├── TypeU.Core/           # 协议、加密、设备指纹、防作弊等核心逻辑
+  ├── TypeU.Models/         # 实体与 DTO
+  ├── TypeU.Network/        # TCP Async Socket + 协议解析
+  ├── TypeU.Data/           # SQLite + Dapper 数据访问
+  ├── TypeU.Services/       # 教师/学生业务服务
+  ├── TypeU.Teacher.GUI/    # 教师端 Avalonia UI
+  ├── TypeU.Student.GUI/    # 学生端 Avalonia UI
+  └── TypeU.Tests/          # 单元测试
+  ```
+
+## 技术选型（确认版）
+
+| 模块    | 技术选型                                     | 说明                         |
+| :---- | :--------------------------------------- | :------------------------- |
+| 运行时   | .NET 10 (LTS)                            | 遵循用户规则使用最新 .NET 版本         |
+| UI 框架 | Avalonia UI 11                           | 跨平台 Win/Linux，GPU 渲染       |
+| 编译发布  | Native AOT                               | 无 IL，符号剥离，防反编译             |
+| 架构模式  | MVVM                                     | CommunityToolkit.Mvvm 源生成器 |
+| 通信    | TCP Async Socket                         | 异步处理 100 节点并发              |
+| 序列化   | protobuf-net (Source Generator)          | AOT 友好，无反射                 |
+| 数据存储  | SQLite + Dapper                          | 单文件跨平台数据库                  |
+| 数据导出  | MiniExcel                                | 低内存，AOT 兼容                 |
+| 加密    | System.Security.Cryptography             | AES + RSA + HMAC-SHA256    |
+| 日志    | Serilog                                  | 结构化日志，文件 + 控制台             |
+| DI    | Microsoft.Extensions.DependencyInjection | 标准依赖注入                     |
+
+## ADDED Requirements
+
+### Requirement: 解决方案与项目结构
+
+系统 SHALL 按 `src/` 目录组织 8 个项目，命名遵循 `{Product}.{Layer}` 约定（TypeU.Core / TypeU.Models / TypeU.Network / TypeU.Data / TypeU.Services / TypeU.Teacher.GUI / TypeU.Student.GUI / TypeU.Tests）。
+禁用顶级语句，命名空间需要包裹住所有代码，避免命名冲突。命名空间以Larpx.PersonalTools.TypeU.开头。
+各项目依赖关系为单向：GUI → Services → Core/Network/Data/Models；Tests 可引用任意被测项目。
+
+#### Scenario: 项目编译验证
+
+- **WHEN** 开发者执行 `dotnet build` 于解决方案根目录
+- **THEN** 8 个项目全部编译通过，0 错误 0 警告
+
+### Requirement: 通信协议与网络层
+
+系统 SHALL 采用自定义二进制协议，报文结构为：
+
+```
+| Magic(2B,0xAA55) | Version(1B) | MsgType(2B) | Timestamp(8B,ms) | Nonce(16B) | DataLen(4B) | Data(NB) | Signature(32B,HMAC-SHA256) | Tail(2B,0x55AA) |
+```
+
+- Data 部分使用 Protobuf 序列化业务消息
+- 全链路 Data 字段使用 AES-256-CBC 加密
+- 接收端校验时间戳偏差 ≤ 60 秒，并缓存最近 Nonce 拒绝重复
+
+#### Scenario: 正常报文收发
+
+- **WHEN** 客户端发送签名且时间戳合法的报文
+- **THEN** 服务端校验 Magic/Tail/Signature/Timestamp/Nonce 全部通过后交付业务层处理
+
+#### Scenario: 重放攻击拦截
+
+- **WHEN** 同一 Nonce 的报文再次到达
+- **THEN** 服务端命中 Nonce 缓存并丢弃报文，记录告警日志
+
+### Requirement: 教师端服务端能力
+
+教师端 SHALL 作为 TCP 服务端监听局域网，提供以下能力：
+
+- 一键启动监听并自动发现在线学生
+- 维护学生列表（IP、计算机名、学号、姓名、状态）
+- 发现学生机列表，以及局域网内所有电脑（一键扫描功能）
+- 题库增删改查与 TXT 文件导入
+- 三种考试模式：定篇测速 / 限时冲刺(1-20 分钟) / 纠错模式
+- 流程控制：开始（锁定学生端 + 倒计时）/ 暂停 / 停止/重新考试 / 加密下发试题
+- 实时监控仪表盘（空闲/考试中/已完成/离线 + 异常红色高亮）
+- 自动收卷解密验证 + 一键导出 Excel（学号、姓名、速度、正确率、异常记录）
+- 设备绑定管理（查看绑定时间/剩余时长 + 强制解绑）
+
+#### Scenario: 开始考试
+
+- **WHEN** 教师点击"开始考试"并选择模式与试题
+- **THEN** 系统加密下发试题至所有在线学生，学生端进入锁定沉浸模式，教师端进入实时监控状态
+
+#### Scenario: 异常预警
+
+- **WHEN** 学生端上报速度异常或批量上屏告警
+- **THEN** 教师端右侧浮窗滚动显示警报，对应学生卡片标红
+
+### Requirement: 学生端客户端能力
+
+学生端 SHALL 作为 TCP 客户端连接教师端，提供以下能力：
+
+- 签到登录（学号 + 姓名）
+- 首次登录自动绑定设备指纹，2 小时自动失效；已绑定其他设备则拒绝登录
+- 打字测试界面：原文区 + 输入区，实时高亮对比（正确绿/错误红），悬浮仪表盘（剩余时间/实时速度）
+- 支持定篇测速、限时冲刺等模式
+- 每 1-2 秒上报实时速度与状态
+- 网络波动自动断线重连，保证考试数据不丢失
+- 考试结束自动打包加密成绩回传
+
+#### Scenario: 设备绑定拦截
+
+- **WHEN** 学号已绑定设备 A 且未过期，学生于设备 B 登录
+- **THEN** 学生端拒绝登录并提示"联系教师解绑"
+
+#### Scenario: 断线重连
+
+- **WHEN** 考试中网络中断
+- **THEN** 学生端本地缓存输入数据，自动尝试重连，重连成功后补传未上报数据
+
+### Requirement: 防作弊体系
+
+系统 SHALL 在学生端实现三层防作弊：
+
+1. **输入法预输入检测**：监听字符时间戳，单次事件多字符或连续字符时间差 < 30ms 判定为批量上屏，仅计前 1-2 个有效字符并标记异常上报
+2. **屏蔽复制粘贴**：拦截 Ctrl+V、右键菜单、剪贴板操作、鼠标拖拽文本
+3. **速度异常监控**：滑动窗口平均速度超阈值触发异常警报上报
+
+#### Scenario: 批量上屏检测
+
+- **WHEN** 输入法一次性上屏 5 个字符
+- **THEN** 仅前 2 个字符计入成绩，剩余丢弃，标记异常上报教师端
+
+### Requirement: 通信与数据安全
+
+系统 SHALL 保证通信与数据安全：
+
+- 全链路 AES-256-CBC 加密
+- HMAC-SHA256 报文签名防篡改
+- 毫秒级时间戳 + 16 字节 Nonce 防重放（Nonce 缓存窗口 120 秒）
+- 设备指纹由 CPU ID + 网卡 MAC + 硬盘序列号哈希生成
+- 发布版本 Native AOT 编译，不生成 PDB，剥离符号
+
+#### Scenario: 篡改检测
+
+- **WHEN** 报文 Data 字段被中间人修改
+- **THEN** 接收端签名校验失败，丢弃报文并记录告警
+
+### Requirement: 数据存储设计
+
+系统 SHALL 使用 SQLite 单文件数据库，主要表结构：
+
+- **Students**：StudentId(PK) / Name / DeviceFingerprint / BoundAt / ExpiresAt
+- **Questions**：QuestionId(PK) / Type(中文/英文/代码) / Content / CreatedAt
+- **ExamSessions**：SessionId(PK) / Mode / QuestionId / StartedAt / EndedAt / Duration
+- **ExamRecords**：RecordId(PK) / SessionId / StudentId / Speed / Accuracy / Anomalies / SubmittedAt
+- **NonceCache**：Nonce(PK) / ReceivedAt（用于防重放，定期清理）
+
+#### Scenario: 成绩查询
+
+- **WHEN** 教师选择某次考试会话查看成绩
+- **THEN** 系统关联 ExamRecords 与 Students 返回完整成绩列表
+
+### Requirement: UI 设计
+
+系统 SHALL 遵循现代扁平化设计：
+
+- **教师端**：左侧导航栏（考生列表/题库/统计）+ 顶部工具栏 + 中间数据看板 + 右侧异常浮窗
+- **学生端**：考试时全屏置顶覆盖 90% 屏幕，禁止移动/最小化；打字区代码编辑器风格（行号、光标高亮、字号 18-20px）；右上角悬浮圆形进度仪表盘
+- 支持明暗主题切换，高对比度适应投影展示
+
+#### Scenario: 学生端沉浸模式
+
+- **WHEN** 考试开始
+- **THEN** 学生端进入全屏置顶，输入区获得焦点，仪表盘开始倒计时
+
+### Requirement: 跨平台部署
+
+系统 SHALL 支持：
+
+- Windows 7/10/11（Win7 需预装 .NET 8 兼容补丁，建议镜像预配置）
+- Linux x64（glibc 较新发行版，Ubuntu 20.04+ / CentOS 7+）
+- 发布产物：Windows 为 Teacher.exe/Student.exe + 运行时 DLL；Linux 为原生 ELF 可执行文件
+
+#### Scenario: Linux 运行
+
+- **WHEN** 于 Ubuntu 22.04 执行 `./Teacher` 与 `./Student`
+- **THEN** 两个程序正常启动并完成局域网通信
+
+## 非功能需求
+
+- **并发**：单教师端支持 100 个学生端稳定连接
+- **实时性**：状态上报间隔 1-2 秒，仪表盘刷新延迟 < 500ms
+- **可用性**：断线重连成功率 > 95%，考试数据零丢失
+- **安全**：AOT 发布无 IL，无 PDB；通信加密防篡改防重放
+- **可维护性**：MVVM 分层，公共逻辑可单元测试覆盖率 ≥ 70%
+
+## 风险与约束
+
+- **Win7 兼容**：.NET 8/10 对 Win7 支持有限，需镜像预装补丁，可能需降级方案
+- **AOT 反射限制**：所有序列化必须使用 Source Generator 模式，避免反射
+- **机房网络**：局域网广播可能受交换机隔离策略影响，自动发现需提供手动输入 IP 兜底
+- **输入法差异**：不同输入法上屏行为不一，30ms 阈值需实测调整
+
