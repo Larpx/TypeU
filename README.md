@@ -20,9 +20,10 @@ dotnet test src/TypeU.Tests
 | 文档 | 说明 |
 | :--- | :--- |
 | [项目介绍](docs/项目介绍.md) | 背景、功能、架构与技术选型 |
+| [项目方案](docs/项目方案.md) | 总体技术方案规格与验收场景 |
 | [二次开发指南](docs/二次开发指南.md) | 环境、目录约定、扩展方式与发布 |
+| [Win7 兼容性说明](docs/Win7兼容性说明.md) | 平台支持与 Win7 不兼容说明 |
 | [需求文档](需求文档.md) | 产品需求（PRD） |
-| [技术方案 Spec](.trae/specs/design-typeu-solution/spec.md) | 详细规格与验收场景 |
 
 ## 技术栈（摘要）
 
