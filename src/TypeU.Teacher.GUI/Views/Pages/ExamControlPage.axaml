@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Larpx.PersonalTools.TypeU.Teacher.GUI.ViewModels.Pages"
+             xmlns:enums="using:Larpx.PersonalTools.TypeU.Models.Enums"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="Larpx.PersonalTools.TypeU.Teacher.GUI.Views.Pages.ExamControlPage"
+             x:DataType="vm:ExamControlPageViewModel">
+
+    <Design.DataContext>
+        <vm:ExamControlPageViewModel/>
+    </Design.DataContext>
+
+    <ScrollViewer Padding="16">
+        <StackPanel Spacing="16">
+            <Border Classes="card">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="考试控制" Classes="title"/>
+                    <TextBlock Text="{Binding StatusText}" Classes="caption"/>
+                    <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto" Margin="0,8" RowDefinitions="Auto, Auto, Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="考试模式：" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox Grid.Row="0" Grid.Column="1" SelectedItem="{Binding SelectedMode, Mode=TwoWay}" Margin="0,0,16,8">
+                            <ComboBoxItem Content="定篇测速" Tag="{x:Static enums:ExamMode.FixedLength}"/>
+                            <ComboBoxItem Content="限时冲刺" Tag="{x:Static enums:ExamMode.TimedSprint}"/>
+                            <ComboBoxItem Content="纠错模式" Tag="{x:Static enums:ExamMode.ErrorCorrection}"/>
+                        </ComboBox>
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="时长（分钟）：" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                        <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding DurationMinutes, Mode=TwoWay}"
+                                       Minimum="1" Maximum="20" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="选择试题：" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                                  ItemsSource="{Binding Questions}"
+                                  SelectedItem="{Binding SelectedQuestion, Mode=TwoWay}"
+                                  DisplayMemberBinding="{Binding Content}" Margin="0,0,0,8" x:CompileBindings="False"/>
+                        <Button Grid.Row="1" Grid.Column="4" Content="刷新" Command="{Binding RefreshQuestionsCommand}"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="开始考试" Command="{Binding StartCommand}" IsEnabled="{Binding !HasActiveSession}"/>
+                        <Button Content="暂停" Command="{Binding PauseCommand}" IsEnabled="{Binding HasActiveSession}"/>
+                        <Button Content="恢复" Command="{Binding ResumeCommand}" IsEnabled="{Binding HasActiveSession}"/>
+                        <Button Content="重新考试" Command="{Binding RestartCommand}" IsEnabled="{Binding HasActiveSession}"/>
+                        <Button Content="停止收卷" Command="{Binding StopCommand}" IsEnabled="{Binding HasActiveSession}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" IsVisible="{Binding HasActiveSession}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="当前会话" Classes="subtitle"/>
+                    <TextBlock Text="{Binding SessionIdText}" FontFamily="Consolas,Monaco,monospace" FontSize="12"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

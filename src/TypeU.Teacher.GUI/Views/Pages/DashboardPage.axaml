@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Larpx.PersonalTools.TypeU.Teacher.GUI.ViewModels.Pages"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="Larpx.PersonalTools.TypeU.Teacher.GUI.Views.Pages.DashboardPage"
+             x:DataType="vm:DashboardPageViewModel">
+
+    <Design.DataContext>
+        <vm:DashboardPageViewModel/>
+    </Design.DataContext>
+
+    <ScrollViewer Padding="16">
+        <StackPanel Spacing="16">
+            <!-- 顶部统计卡片 -->
+            <Grid ColumnDefinitions="*, *, *, *, *">
+                <Border Grid.Column="0" Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="空闲" Classes="caption"/>
+                        <TextBlock Text="{Binding IdleCount}" FontSize="24" FontWeight="600"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="考试中" Classes="caption"/>
+                        <TextBlock Text="{Binding ExaminingCount}" FontSize="24" FontWeight="600"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="已提交" Classes="caption"/>
+                        <TextBlock Text="{Binding SubmittedCount}" FontSize="24" FontWeight="600"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="异常" Classes="caption"/>
+                        <TextBlock Text="{Binding AnomalyCount}" FontSize="24" FontWeight="600" Foreground="#ef4444"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="4" Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="离线" Classes="caption"/>
+                        <TextBlock Text="{Binding OfflineCount}" FontSize="24" FontWeight="600"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 操作行 -->
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="刷新" Command="{Binding RefreshCommand}"/>
+            </StackPanel>
+
+            <!-- 学生列表 -->
+            <Border Classes="card">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="学生列表" Classes="subtitle"/>
+                    <DataGrid ItemsSource="{Binding Students}" AutoGenerateColumns="False" IsReadOnly="True" MinHeight="200" x:CompileBindings="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="学号" Binding="{Binding StudentId}"/>
+                            <DataGridTextColumn Header="姓名" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="IP" Binding="{Binding ClientIp}"/>
+                            <DataGridTextColumn Header="速度" Binding="{Binding Speed}"/>
+                            <DataGridTextColumn Header="正确率" Binding="{Binding Accuracy}"/>
+                            <DataGridTextColumn Header="异常" Binding="{Binding AnomalyCount}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

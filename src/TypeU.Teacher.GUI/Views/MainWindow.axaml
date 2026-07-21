@@ -3,16 +3,83 @@
         xmlns:vm="using:Larpx.PersonalTools.TypeU.Teacher.GUI.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="720"
         x:Class="Larpx.PersonalTools.TypeU.Teacher.GUI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="TypeU 教师端">
+        Title="TypeU 教师端"
+        Width="1280" Height="800"
+        MinWidth="1024" MinHeight="640">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid RowDefinitions="48, *, Auto">
+        <!-- 顶部工具栏 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemAccentColor}" Padding="16,0">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="12">
+                    <TextBlock Text="TypeU 教师端" Foreground="White" FontSize="16" FontWeight="600"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                    <TextBlock Text="{Binding ThemeName}" Foreground="White" VerticalAlignment="Center" FontSize="12"/>
+                    <Button Content="主题" Command="{Binding ToggleThemeCommand}" Padding="12,4"/>
+                    <Button Content="{Binding IsAlertPanelOpen, StringFormat='异常 {0}'}"
+                            Command="{Binding ToggleAlertPanelCommand}" Padding="12,4"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
+        <!-- 主体：左侧导航 + 中间看板 + 右侧浮窗 -->
+        <Grid Grid.Row="1" ColumnDefinitions="220, *, 320">
+            <!-- 左侧导航 -->
+            <Border Grid.Column="0" Background="{DynamicResource SystemRegionBrush}" BorderBrush="#e2e8f0" BorderThickness="0,0,1,0">
+                <StackPanel Margin="0,12" Spacing="4">
+                    <Button Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:TeacherPage.Dashboard}"
+                            Content="监控看板" Margin="8,0"/>
+                    <Button Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:TeacherPage.Questions}"
+                            Content="题库管理" Margin="8,0"/>
+                    <Button Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:TeacherPage.ExamControl}"
+                            Content="考试控制" Margin="8,0"/>
+                    <Button Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:TeacherPage.Grades}"
+                            Content="成绩统计" Margin="8,0"/>
+                    <Button Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:TeacherPage.DeviceBinding}"
+                            Content="设备绑定" Margin="8,0"/>
+                    <Button Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:TeacherPage.LanScan}"
+                            Content="局域网扫描" Margin="8,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 中间看板 -->
+            <ContentControl Grid.Column="1" Content="{Binding CurrentPage}" Margin="0"/>
+
+            <!-- 右侧异常浮窗 -->
+            <Border Grid.Column="2"
+                    Background="{DynamicResource SystemRegionBrush}"
+                    BorderBrush="#e2e8f0" BorderThickness="1,0,0,0"
+                    IsVisible="{Binding IsAlertPanelOpen}">
+                <Grid RowDefinitions="Auto, *">
+                    <Border Grid.Row="0" Padding="16,12" BorderBrush="#e2e8f0" BorderThickness="0,0,0,1">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="异常告警" Classes="subtitle"/>
+                            <TextBlock Text="{Binding Alerts.Count, StringFormat='({0})'}" Classes="caption" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <ListBox Grid.Row="1" ItemsSource="{Binding Alerts}" Padding="8">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayText}" FontSize="12" TextWrapping="Wrap"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 底部状态栏 -->
+        <Border Grid.Row="2" Padding="16,6" Background="{DynamicResource SystemRegionBrush}" BorderBrush="#e2e8f0" BorderThickness="0,1,0,0">
+            <TextBlock Text="TypeU 教师端 - 局域网打字考试系统" Classes="caption"/>
+        </Border>
+    </Grid>
 </Window>

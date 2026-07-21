@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Larpx.PersonalTools.TypeU.Teacher.GUI.ViewModels.Pages"
+             xmlns:enums="using:Larpx.PersonalTools.TypeU.Models.Enums"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="Larpx.PersonalTools.TypeU.Teacher.GUI.Views.Pages.QuestionPage"
+             x:DataType="vm:QuestionPageViewModel">
+
+    <Design.DataContext>
+        <vm:QuestionPageViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto, *, Auto" Margin="16">
+        <!-- 工具栏 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+            <Button Content="刷新" Command="{Binding RefreshCommand}"/>
+            <Button Content="从 TXT 导入" Click="OnImportClick"/>
+            <TextBlock Text="{Binding StatusText}" Classes="caption" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- 试题列表 -->
+        <Border Grid.Row="1" Classes="card">
+            <DataGrid ItemsSource="{Binding Questions}" AutoGenerateColumns="False"
+                      SelectedItem="{Binding SelectedQuestion, Mode=TwoWay}" IsReadOnly="True" x:CompileBindings="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="类型" Binding="{Binding Type}"/>
+                    <DataGridTextColumn Header="内容" Binding="{Binding Content}"/>
+                    <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- 编辑区 -->
+        <Border Grid.Row="2" Classes="card" Margin="0,12,0,0">
+            <Grid RowDefinitions="Auto, Auto, Auto" Margin="0,8">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                    <TextBlock Text="类型：" VerticalAlignment="Center"/>
+                    <ComboBox SelectedItem="{Binding EditType, Mode=TwoWay}">
+                        <ComboBoxItem Content="中文" Tag="{x:Static enums:QuestionType.Chinese}"/>
+                        <ComboBoxItem Content="英文" Tag="{x:Static enums:QuestionType.English}"/>
+                        <ComboBoxItem Content="代码" Tag="{x:Static enums:QuestionType.Code}"/>
+                    </ComboBox>
+                </StackPanel>
+                <TextBox Grid.Row="1" Text="{Binding EditContent, Mode=TwoWay}"
+                         PlaceholderText="试题内容" AcceptsReturn="True" MinHeight="80" Margin="0,0,0,8"/>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+                    <Button Content="新增" Command="{Binding AddCommand}"/>
+                    <Button Content="更新" Command="{Binding UpdateCommand}"/>
+                    <Button Content="删除" Command="{Binding DeleteCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
