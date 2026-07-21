@@ -4,6 +4,7 @@ using System.Linq;
 using Larpx.PersonalTools.TypeU.Data.Repositories;
 using Larpx.PersonalTools.TypeU.Models.Entities;
 using Microsoft.Extensions.Logging;
+using StudentEntity = Larpx.PersonalTools.TypeU.Models.Entities.Student;
 
 namespace Larpx.PersonalTools.TypeU.Services.Teacher;
 
@@ -27,12 +28,12 @@ public sealed class DeviceBindingService
     /// <summary>
     /// 查询全部学生绑定信息。
     /// </summary>
-    public IReadOnlyList<Student> GetAllBindings() => _studentRepository.GetAll();
+    public IReadOnlyList<StudentEntity> GetAllBindings() => _studentRepository.GetAll();
 
     /// <summary>
     /// 查询指定学生的绑定详情。
     /// </summary>
-    public Student? GetBinding(string studentId) => _studentRepository.GetById(studentId);
+    public StudentEntity? GetBinding(string studentId) => _studentRepository.GetById(studentId);
 
     /// <summary>
     /// 计算绑定剩余时长（秒，已过期返回 0）。
@@ -73,7 +74,7 @@ public sealed class DeviceBindingService
         var now = DateTime.UtcNow;
         if (existing is null)
         {
-            var student = new Student
+            var student = new StudentEntity
             {
                 StudentId = studentId,
                 Name = name,

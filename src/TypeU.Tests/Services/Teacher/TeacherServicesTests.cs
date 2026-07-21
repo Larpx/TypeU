@@ -6,6 +6,7 @@ using Larpx.PersonalTools.TypeU.Data.Repositories;
 using Larpx.PersonalTools.TypeU.Models.Entities;
 using Larpx.PersonalTools.TypeU.Models.Enums;
 using Larpx.PersonalTools.TypeU.Services.Teacher;
+using StudentEntity = Larpx.PersonalTools.TypeU.Models.Entities.Student;
 using Xunit;
 
 namespace Larpx.PersonalTools.TypeU.Tests.Services.Teacher;
@@ -189,7 +190,7 @@ public sealed class TeacherServicesTests : IDisposable
         var svc = new GradeService(examRepo, studentRepo);
 
         // 准备：学生 + 会话 + 成绩。
-        studentRepo.Insert(new Student
+        studentRepo.Insert(new StudentEntity
         {
             StudentId = "S001",
             Name = "张三",
