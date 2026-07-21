@@ -328,6 +328,8 @@ ICSDebug.sln
 
 # PowerShell scripts (local tooling)
 *.ps1
+# 例外：项目发布脚本需要纳入版本控制
+!scripts/publish.ps1
 
 # Build/log text files (local tooling)
 log.txt

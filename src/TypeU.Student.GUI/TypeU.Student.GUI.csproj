@@ -9,6 +9,9 @@
     <PublishAot>true</PublishAot>
     <StripSymbols>true</StripSymbols>
     <DebugType>none</DebugType>
+    <!-- 第三方库（Dapper/protobuf-net/Avalonia.DataGrid/MiniExcel）与 DataGrid 反射绑定的 AOT/trim 警告抑制。
+         这些库在已知静态调用场景下运行时安全，DTO 均有 [ProtoContract] 注解，DataGrid 列绑定固定。 -->
+    <NoWarn>$(NoWarn);IL2026;IL2046;IL2050;IL2055;IL2072;IL2075;IL2087;IL2091;IL2098;IL2104;IL3050;IL3053</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

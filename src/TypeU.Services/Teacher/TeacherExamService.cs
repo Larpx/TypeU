@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Larpx.PersonalTools.TypeU.Data.Repositories;
@@ -195,7 +196,8 @@ public sealed class TeacherExamService
         await _server.BroadcastAsync(MessageType.ExamControl, SerializeProto(ctrl)).ConfigureAwait(false);
     }
 
-    private static byte[] SerializeProto<T>(T msg) where T : class
+    private static byte[] SerializeProto<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T msg)
+        where T : class
     {
         using var ms = new System.IO.MemoryStream();
         Serializer.Serialize(ms, msg);
