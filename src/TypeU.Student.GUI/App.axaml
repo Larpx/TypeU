@@ -1,9 +1,57 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Larpx.PersonalTools.TypeU.Student.GUI.ViewModels"
+             xmlns:pages="using:Larpx.PersonalTools.TypeU.Student.GUI.ViewModels.Pages"
+             xmlns:pagesViews="using:Larpx.PersonalTools.TypeU.Student.GUI.Views.Pages"
              x:Class="Larpx.PersonalTools.TypeU.Student.GUI.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Light">
+
+    <Application.DataTemplates>
+        <DataTemplate DataType="{x:Type pages:LoginPageViewModel}">
+            <pagesViews:LoginPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type pages:ExamPageViewModel}">
+            <pagesViews:ExamPage />
+        </DataTemplate>
+    </Application.DataTemplates>
 
     <Application.Styles>
         <FluentTheme />
+        <Style Selector="Border.card">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderBrush" Value="#e2e8f0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource SystemRegionBrush}"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="600"/>
+        </Style>
+        <Style Selector="TextBlock.subtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="600"/>
+        </Style>
+        <Style Selector="TextBlock.caption">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4,2"/>
+        </Style>
+        <Style Selector="TextBlock.correct">
+            <Setter Property="Foreground" Value="#16a34a"/>
+        </Style>
+        <Style Selector="TextBlock.wrong">
+            <Setter Property="Foreground" Value="#ef4444"/>
+        </Style>
     </Application.Styles>
 </Application>

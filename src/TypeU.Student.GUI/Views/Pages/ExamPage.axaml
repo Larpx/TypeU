@@ -1,0 +1,111 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Larpx.PersonalTools.TypeU.Student.GUI.ViewModels.Pages"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+             x:Class="Larpx.PersonalTools.TypeU.Student.GUI.Views.Pages.ExamPage"
+             x:DataType="vm:ExamPageViewModel"
+             Loaded="OnLoaded"
+             ContextRequested="OnContextRequested"
+             KeyDown="OnKeyDown">
+
+    <Design.DataContext>
+        <vm:ExamPageViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="*, Auto">
+        <!-- 主体：原文区 + 输入区 + 右上角悬浮仪表盘 -->
+        <Grid Grid.Row="0" ColumnDefinitions="*, 280">
+            <!-- 原文 + 输入区 -->
+            <Border Grid.Column="0" Classes="card" Margin="24,24,12,12" Padding="32,24">
+                <Grid RowDefinitions="Auto, *, Auto">
+                    <TextBlock Grid.Row="0" Text="原文（按行号对照输入）" Classes="subtitle" Margin="0,0,0,16"/>
+
+                    <!-- 原文显示区：字符级高亮 -->
+                    <Border Grid.Row="1" BorderBrush="#e2e8f0" BorderThickness="1" CornerRadius="6" Padding="16,12">
+                        <ItemsControl x:CompileBindings="False" ItemsSource="{Binding Chars}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Character}"
+                                               FontSize="20"
+                                               FontFamily="Cascadia Code, Consolas, monospace"
+                                               Margin="0,0,0,2"
+                                               Classes.correct="{Binding IsCorrect}"
+                                               Classes.wrong="{Binding IsWrong}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <!-- 输入区 -->
+                    <TextBox Grid.Row="2"
+                             Text="{Binding InputText, Mode=TwoWay}"
+                             TextChanged="HandleInputTextChanged"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             FontSize="20"
+                             FontFamily="Cascadia Code, Consolas, monospace"
+                             Padding="12,8"
+                             Margin="0,16,0,0"
+                             PlaceholderText="在此输入原文..."
+                             MinHeight="120"/>
+                </Grid>
+            </Border>
+
+            <!-- 右侧仪表盘 -->
+            <Border Grid.Column="1" Classes="card" Margin="12,24,24,12" Padding="24">
+                <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                    <TextBlock Grid.Row="0" Text="考试仪表盘" Classes="subtitle" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+
+                    <!-- 圆形进度环（剩余时间占比） -->
+                    <Border Grid.Row="1" HorizontalAlignment="Center" Margin="0,0,0,16"
+                            Width="160" Height="160" CornerRadius="80"
+                            BorderBrush="#e2e8f0" BorderThickness="12"
+                            Background="#f1f5f9">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                            <TextBlock Text="{Binding RemainingDisplay}" FontSize="22" FontWeight="700" HorizontalAlignment="Center"/>
+                            <TextBlock Text="剩余时间" Classes="caption" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Grid.Row="2" Text="{Binding ExamStateText}" Classes="caption" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+
+                    <Grid Grid.Row="3" ColumnDefinitions="*, *" Margin="0,0,0,8">
+                        <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding CurrentSpeed, StringFormat={}{0:F1}}" FontSize="22" FontWeight="600" HorizontalAlignment="Center"/>
+                            <TextBlock Text="字/分钟" Classes="caption" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding CurrentAccuracy, StringFormat={}{0:F1}%}" FontSize="22" FontWeight="600" HorizontalAlignment="Center"/>
+                            <TextBlock Text="正确率" Classes="caption" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="4" ColumnDefinitions="*, *">
+                        <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding InputCount}" FontSize="18" FontWeight="600" HorizontalAlignment="Center"/>
+                            <TextBlock Text="已输入" Classes="caption" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding TotalChars}" FontSize="18" FontWeight="600" HorizontalAlignment="Center"/>
+                            <TextBlock Text="总字符" Classes="caption" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 底部状态栏：异常提示 -->
+        <Border Grid.Row="1" Padding="24,8" Background="{DynamicResource SystemRegionBrush}"
+                BorderBrush="#e2e8f0" BorderThickness="0,1,0,0"
+                IsVisible="{Binding AlertText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Text="{Binding AlertText}" Foreground="#ef4444" Classes="caption"/>
+        </Border>
+    </Grid>
+</UserControl>

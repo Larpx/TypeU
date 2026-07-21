@@ -3,8 +3,13 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Larpx.PersonalTools.TypeU.Core.Bootstrapping;
+using Larpx.PersonalTools.TypeU.Network.Discovery;
+using Larpx.PersonalTools.TypeU.Network.Security;
+using Larpx.PersonalTools.TypeU.Network.Tcp;
 using Larpx.PersonalTools.TypeU.Services.Bootstrapping;
+using Larpx.PersonalTools.TypeU.Services.Student;
 using Larpx.PersonalTools.TypeU.Student.GUI.ViewModels;
+using Larpx.PersonalTools.TypeU.Student.GUI.ViewModels.Pages;
 using Larpx.PersonalTools.TypeU.Student.GUI.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -31,9 +36,31 @@ public partial class App : Application
     /// </summary>
     public override void OnFrameworkInitializationCompleted()
     {
+        const int UdpListenPort = 5800;
+
         _services = AppBootstrapper.Build(services =>
         {
             services.AddCommonServices("logs/student");
+
+            // 网络基础设施：与教师端共享同一对密钥（实际部署应由教师端通过配置下发）。
+            var aesKey = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+            var hmacKey = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+            services.AddSingleton(_ => new PacketCodec(aesKey, hmacKey, verifyNonce: true));
+            services.AddSingleton<TcpExamClient>();
+            services.AddSingleton(sp => new UdpDiscoveryListener(
+                sp.GetRequiredService<PacketCodec>(), UdpListenPort));
+
+            // 学生端业务服务。
+            services.AddSingleton<StudentAuthService>();
+            services.AddSingleton<TypingTestService>();
+            services.AddSingleton<StatusReportService>();
+            services.AddSingleton<ResultSubmitService>();
+            services.AddSingleton<ClientTimeSyncService>();
+            services.AddSingleton<StudentDiscoveryService>();
+
+            // ViewModel。
+            services.AddSingleton<LoginPageViewModel>();
+            services.AddSingleton<ExamPageViewModel>();
             services.AddSingleton<MainWindowViewModel>();
         });
 
