@@ -18,7 +18,8 @@ param(
     [ValidateSet('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64')]
     [string]$RuntimeIdentifier = 'win-x64',
     [ValidateSet('Debug', 'Release')]
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+    [switch]$NoAot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,8 +29,26 @@ $publishRoot = Join-Path $root 'publish' $RuntimeIdentifier
 Write-Host "=== TypeU AOT 发布 ===" -ForegroundColor Cyan
 Write-Host "RuntimeIdentifier : $RuntimeIdentifier"
 Write-Host "Configuration     : $Configuration"
+Write-Host "AOT               : $(-not $NoAot)"
 Write-Host "Output            : $publishRoot"
 Write-Host ""
+
+$dotnetPublishArgs = @(
+    'publish',
+    '-c', $Configuration,
+    '-r', $RuntimeIdentifier,
+    '-o', ''
+    '/p:PublishSingleFile=true'
+)
+
+if (-not $NoAot) {
+    $dotnetPublishArgs += '/p:PublishAot=true'
+    $dotnetPublishArgs += '/p:StripSymbols=true'
+    $dotnetPublishArgs += '/p:DebugType=none'
+} else {
+    $dotnetPublishArgs += '/p:PublishAot=false'
+    $dotnetPublishArgs += '/p:IncludeNativeLibrariesForSelfExtract=true'
+}
 
 $projects = @(
     @{ Name = 'Teacher'; Path = 'src/TypeU.Teacher.GUI/TypeU.Teacher.GUI.csproj' },
@@ -38,15 +57,9 @@ $projects = @(
 
 foreach ($proj in $projects) {
     $outDir = Join-Path $publishRoot $proj.Name
+    $dotnetPublishArgs[4] = $outDir
     Write-Host "[$($proj.Name)] 发布中..." -ForegroundColor Yellow
-    dotnet publish (Join-Path $root $proj.Path) `
-        -c $Configuration `
-        -r $RuntimeIdentifier `
-        -o $outDir `
-        /p:PublishAot=true `
-        /p:StripSymbols=true `
-        /p:DebugType=none `
-        /p:PublishSingleFile=true
+    dotnet @dotnetPublishArgs (Join-Path $root $proj.Path)
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[$($proj.Name)] 发布失败" -ForegroundColor Red

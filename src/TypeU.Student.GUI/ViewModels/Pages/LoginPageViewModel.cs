@@ -118,9 +118,9 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
     private string _errorMessage = string.Empty;
 
     /// <summary>
-    /// 登录成功事件（MainWindowViewModel 监听以切换到考试页）。
-    /// </summary>
-    public event Action? LoginSucceeded;
+/// 登录成功事件（MainWindowViewModel 监听以切换到考试页）。
+/// </summary>
+public event Action<string>? LoginSucceeded;
 
     /// <summary>
     /// 启动自动发现（页面 Loaded 时调用）。
@@ -212,7 +212,7 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
             if (result.Success)
             {
                 StatusText = "登录成功，等待开考...";
-                LoginSucceeded?.Invoke();
+                LoginSucceeded?.Invoke(StudentId);
             }
             else
             {

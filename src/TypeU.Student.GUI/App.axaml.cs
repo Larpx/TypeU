@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Larpx.PersonalTools.TypeU.Core.Bootstrapping;
+using Larpx.PersonalTools.TypeU.Core.Security;
 using Larpx.PersonalTools.TypeU.Network.Discovery;
 using Larpx.PersonalTools.TypeU.Network.Security;
 using Larpx.PersonalTools.TypeU.Network.Tcp;
@@ -42,10 +43,8 @@ public partial class App : Application
         {
             services.AddCommonServices("logs/student");
 
-            // 网络基础设施：与教师端共享同一对密钥（实际部署应由教师端通过配置下发）。
-            var aesKey = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-            var hmacKey = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-            services.AddSingleton(_ => new PacketCodec(aesKey, hmacKey, verifyNonce: true));
+            // 网络基础设施：与教师端共享同一对预共享密钥。
+            services.AddSingleton(_ => new PacketCodec(PreSharedKeys.AesKey, PreSharedKeys.HmacKey, verifyNonce: true));
             services.AddSingleton<TcpExamClient>();
             services.AddSingleton(sp => new UdpDiscoveryListener(
                 sp.GetRequiredService<PacketCodec>(), UdpListenPort));

@@ -41,8 +41,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool _isExamImmersive;
 
-    private void OnLoginSucceeded()
+    private void OnLoginSucceeded(string studentId)
     {
+        _exam.SetStudentContext(studentId, Guid.Empty);
         CurrentPage = _exam;
         IsExamImmersive = true;
     }

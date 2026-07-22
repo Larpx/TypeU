@@ -9,8 +9,9 @@ using Microsoft.Win32;
 namespace Larpx.PersonalTools.TypeU.Core.Devices;
 
 /// <summary>
-/// 设备指纹生成器：CPU ID + 网卡 MAC + 机器 ID 组合的 SHA-256 哈希。
-/// 跨平台：Windows 读注册表 MachineGuid；Linux 读 /etc/machine-id；其他平台退化为 MachineName。
+/// 设备指纹生成器：基于 CPU 参数 + 网卡 MAC + 机器唯一标识组合的 SHA-256 哈希。
+/// Windows：读取注册表 MachineGuid；Linux：读取 /etc/machine-id；其他平台退化为 MachineName。
+/// 替代硬盘序列号方案以保证跨平台兼容性。
 /// </summary>
 public sealed class DeviceFingerprintProvider
 {
