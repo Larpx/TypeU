@@ -1,3 +1,4 @@
+using System;
 using ProtoBuf;
 
 namespace Larpx.PersonalTools.TypeU.Models.Dtos;
@@ -19,4 +20,20 @@ public sealed partial class LoginAckDto
     /// <summary>教师端时间戳（UTC 毫秒）。</summary>
     [ProtoMember(3)]
     public long ServerTimestampMs { get; set; }
+
+    /// <summary>登录后是否锁定退出（考试进行中为 true）。</summary>
+    [ProtoMember(4)]
+    public bool LogoutLocked { get; set; } = true;
+
+    /// <summary>会话 ID。</summary>
+    [ProtoMember(5)]
+    public Guid SessionId { get; set; }
+
+    /// <summary>最大测验次数。</summary>
+    [ProtoMember(6)]
+    public int MaxAttempts { get; set; } = 1;
+
+    /// <summary>交卷后是否允许自由练习。</summary>
+    [ProtoMember(7)]
+    public bool AllowPracticeAfterSubmit { get; set; }
 }

@@ -167,6 +167,7 @@ public sealed class RepositoriesTests : IDisposable
             QuestionId = Guid.NewGuid(),
             Type = QuestionType.Chinese,
             Content = "床前明月光",
+            ExpectedContent = string.Empty,
             CreatedAt = DateTime.UtcNow
         };
         var q2 = new Question
@@ -174,6 +175,7 @@ public sealed class RepositoriesTests : IDisposable
             QuestionId = Guid.NewGuid(),
             Type = QuestionType.Code,
             Content = "Console.WriteLine();",
+            ExpectedContent = "Console.WriteLine();",
             CreatedAt = DateTime.UtcNow
         };
         repo.Insert(q1);
@@ -185,10 +187,13 @@ public sealed class RepositoriesTests : IDisposable
         var codeOnly = repo.GetByType(QuestionType.Code);
         Assert.Single(codeOnly);
         Assert.Equal(q2.QuestionId, codeOnly[0].QuestionId);
+        Assert.Equal("Console.WriteLine();", codeOnly[0].ExpectedContent);
 
         q1.Content = "更新内容";
+        q1.ExpectedContent = "参考答案";
         repo.Update(q1);
         Assert.Equal("更新内容", repo.GetById(q1.QuestionId)!.Content);
+        Assert.Equal("参考答案", repo.GetById(q1.QuestionId)!.ExpectedContent);
 
         repo.Delete(q2.QuestionId);
         Assert.Single(repo.GetAll());
@@ -252,12 +257,96 @@ public sealed class RepositoriesTests : IDisposable
 
         var bySession = repo.GetRecordsBySession(sessionId);
         Assert.Equal(2, bySession.Count);
-        // 降序排列：Speed 高的在前。
-        Assert.Equal(70.2, bySession[0].Speed);
+        Assert.Equal("S001", bySession[0].StudentId);
+        Assert.Equal("S002", bySession[1].StudentId);
+        Assert.Equal(55.5, bySession[0].Speed);
+        Assert.Equal(70.2, bySession[1].Speed);
 
         var byStudent = repo.GetRecordsByStudent("S001");
         Assert.Single(byStudent);
         Assert.Equal(55.5, byStudent[0].Speed);
+    }
+
+    /// <summary>
+    /// 同会话同学生多试次成绩与 Running 会话恢复。
+    /// </summary>
+    [Fact]
+    public void Exam_MultiAttempt_AndRunningSession_Works()
+    {
+        var repo = new ExamRepository(_factory);
+        var sessionId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        repo.InsertSession(new ExamSession
+        {
+            SessionId = sessionId,
+            Mode = ExamMode.TimedSprint,
+            QuestionId = Guid.NewGuid(),
+            StartedAt = now,
+            Duration = 300,
+            MaxAttempts = 3,
+            AllowPracticeAfterSubmit = true,
+            TeacherId = "T001",
+            TeacherName = "王老师",
+            Status = ExamSessionStatus.Running
+        });
+
+        repo.InsertRecord(new ExamRecord
+        {
+            RecordId = Guid.NewGuid(),
+            SessionId = sessionId,
+            StudentId = "S001",
+            AttemptIndex = 1,
+            Speed = 60,
+            Accuracy = 90,
+            SubmittedAt = now
+        });
+        repo.InsertRecord(new ExamRecord
+        {
+            RecordId = Guid.NewGuid(),
+            SessionId = sessionId,
+            StudentId = "S001",
+            AttemptIndex = 2,
+            Speed = 70,
+            Accuracy = 95,
+            SubmittedAt = now.AddMinutes(1)
+        });
+
+        Assert.Equal(2, repo.CountAttempts(sessionId, "S001"));
+        var running = repo.GetRunningSession();
+        Assert.NotNull(running);
+        Assert.Equal(sessionId, running!.SessionId);
+        Assert.Equal(3, running.MaxAttempts);
+        Assert.True(running.AllowPracticeAfterSubmit);
+    }
+
+    /// <summary>
+    /// 会话登录名单：按设备查询与允许登出。
+    /// </summary>
+    [Fact]
+    public void SessionLogin_Upsert_GetByDevice_AllowLogout_Works()
+    {
+        var repo = new SessionLoginRepository(_factory);
+        var sessionId = Guid.NewGuid();
+        repo.Upsert(new SessionLogin
+        {
+            SessionId = sessionId,
+            DeviceFingerprint = "FP-A",
+            StudentId = "S001",
+            Name = "张三",
+            LoggedInAt = DateTime.UtcNow,
+            LogoutAllowed = false
+        });
+
+        var got = repo.GetByDevice(sessionId, "FP-A");
+        Assert.NotNull(got);
+        Assert.Equal("S001", got!.StudentId);
+        Assert.False(got.LogoutAllowed);
+
+        repo.SetLogoutAllowed(sessionId, "S001", true);
+        Assert.True(repo.GetByDevice(sessionId, "FP-A")!.LogoutAllowed);
+
+        repo.Delete(sessionId, "FP-A");
+        Assert.Null(repo.GetByDevice(sessionId, "FP-A"));
     }
 
     /// <summary>

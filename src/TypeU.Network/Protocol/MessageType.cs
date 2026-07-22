@@ -73,5 +73,30 @@ public enum MessageType : ushort
     /// <summary>
     /// 局域网扫描响应（被扫描设备 → 教师端）。
     /// </summary>
-    LanScanResponse = 102
+    LanScanResponse = 102,
+
+    /// <summary>
+    /// 连接握手（学生端 → 教师端）。
+    /// </summary>
+    Hello = 110,
+
+    /// <summary>
+    /// 握手应答（教师端 → 学生端）。
+    /// </summary>
+    HelloAck = 111,
+
+    /// <summary>
+    /// 学生主动登出。
+    /// </summary>
+    Logout = 112,
+
+    /// <summary>
+    /// 教师允许指定学生登出。
+    /// </summary>
+    LogoutAllow = 113,
+
+    /// <summary>
+    /// 考试生命周期（开考/结束广播）。
+    /// </summary>
+    ExamLifecycle = 114
 }

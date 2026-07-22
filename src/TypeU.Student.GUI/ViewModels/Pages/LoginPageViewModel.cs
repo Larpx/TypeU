@@ -1,207 +1,189 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Larpx.PersonalTools.TypeU.Models.Dtos;
+using Larpx.PersonalTools.TypeU.Models.Enums;
+using Larpx.PersonalTools.TypeU.Network.Protocol;
+using Larpx.PersonalTools.TypeU.Network.Tcp;
 using Larpx.PersonalTools.TypeU.Services.Student;
+using Microsoft.Extensions.Logging;
+using ProtoBuf;
 
 namespace Larpx.PersonalTools.TypeU.Student.GUI.ViewModels.Pages;
 
 /// <summary>
-/// 登录页 ViewModel：学号/姓名输入、自动发现状态提示、手动输入教师端 IP 兜底入口、登录请求。
+/// 登录页：默认单机；配置 IP 后 Ping→连接→Hello；仅开考后登录。
 /// </summary>
 public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
 {
-    private readonly StudentDiscoveryService? _discovery;
+    private readonly StudentConnectionService? _connection;
     private readonly StudentAuthService? _auth;
-    private readonly ClientTimeSyncService? _timeSync;
-    private readonly StatusReportService? _statusReport;
-    private readonly ResultSubmitService? _resultSubmit;
-    private readonly TypingTestService? _typingTest;
+    private readonly TcpExamClient? _client;
+    private readonly ILogger<LoginPageViewModel>? _logger;
+    private StudentClientConfig _config = new();
+    private bool _disposed;
 
-    /// <summary>
-    /// 设计时无参构造（XAML 预览器使用）。
-    /// </summary>
+    /// <summary>设计时。</summary>
     public LoginPageViewModel()
     {
-        StatusText = "等待自动发现教师端...";
+        StatusText = "单机模式";
+        NetworkMode = ClientNetworkMode.Offline;
+        IsOfflineMode = true;
     }
 
-    /// <summary>
-    /// 运行时构造。
-    /// </summary>
-    /// <param name="discovery">自动发现服务。</param>
-    /// <param name="auth">签到登录服务。</param>
-    /// <param name="timeSync">时间同步服务。</param>
-    /// <param name="statusReport">状态上报服务。</param>
-    /// <param name="resultSubmit">成绩回传服务。</param>
-    /// <param name="typingTest">打字测试服务。</param>
+    /// <summary>运行时。</summary>
     public LoginPageViewModel(
-        StudentDiscoveryService discovery,
+        StudentConnectionService connection,
         StudentAuthService auth,
-        ClientTimeSyncService timeSync,
-        StatusReportService statusReport,
-        ResultSubmitService resultSubmit,
-        TypingTestService typingTest)
+        TcpExamClient client,
+        ILogger<LoginPageViewModel>? logger = null)
     {
-        _discovery = discovery ?? throw new ArgumentNullException(nameof(discovery));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _auth = auth ?? throw new ArgumentNullException(nameof(auth));
-        _timeSync = timeSync ?? throw new ArgumentNullException(nameof(timeSync));
-        _statusReport = statusReport ?? throw new ArgumentNullException(nameof(statusReport));
-        _resultSubmit = resultSubmit ?? throw new ArgumentNullException(nameof(resultSubmit));
-        _typingTest = typingTest ?? throw new ArgumentNullException(nameof(typingTest));
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _logger = logger;
 
-        StatusText = "正在自动发现教师端...";
-
-        _discovery.TeacherDiscovered += OnTeacherDiscovered;
-        _discovery.DiscoveryTimeout += OnDiscoveryTimeout;
-        _discovery.Connected += OnConnected;
+        _config = StudentClientConfig.Load();
+        ManualHost = _config.TeacherHost;
+        ManualPort = _config.TeacherPort;
+        IsOfflineMode = true;
+        NetworkMode = ClientNetworkMode.Offline;
+        StatusText = "单机模式。可配置教师 IP 后连接。";
+        CanLogin = false;
+        _client.PacketReceived += OnPacketReceived;
     }
 
-    /// <summary>
-    /// 学号。
-    /// </summary>
-    [ObservableProperty]
-    private string _studentId = string.Empty;
+    /// <summary>学号。</summary>
+    [ObservableProperty] private string _studentId = string.Empty;
+    /// <summary>姓名。</summary>
+    [ObservableProperty] private string _studentName = string.Empty;
+    /// <summary>状态。</summary>
+    [ObservableProperty] private string _statusText = string.Empty;
+    /// <summary>是否已连接。</summary>
+    [ObservableProperty] private bool _isConnected;
+    /// <summary>是否单机。</summary>
+    [ObservableProperty] private bool _isOfflineMode = true;
+    /// <summary>联网模式。</summary>
+    [ObservableProperty] private ClientNetworkMode _networkMode = ClientNetworkMode.Offline;
+    /// <summary>是否正在登录。</summary>
+    [ObservableProperty] private bool _isLoggingIn;
+    /// <summary>是否允许登录（开考后）。</summary>
+    [ObservableProperty] private bool _canLogin;
+    /// <summary>考试是否进行中。</summary>
+    [ObservableProperty] private bool _examRunning;
+    /// <summary>教师 IP。</summary>
+    [ObservableProperty] private string _manualHost = string.Empty;
+    /// <summary>教师端口。</summary>
+    [ObservableProperty] private int _manualPort = 5700;
+    /// <summary>错误。</summary>
+    [ObservableProperty] private string _errorMessage = string.Empty;
+    /// <summary>最大次数。</summary>
+    [ObservableProperty] private int _maxAttempts = 1;
+    /// <summary>交卷后练习。</summary>
+    [ObservableProperty] private bool _allowPracticeAfterSubmit;
+
+    /// <summary>主按钮文案。</summary>
+    public string LoginButtonText =>
+        IsOfflineMode ? "开始单机练习" : (CanLogin ? "考试登录" : "等待开考（可联网练习）");
+
+    /// <summary>登录成功（学号, 是否单机）。</summary>
+    public event Action<string, bool>? LoginSucceeded;
+
+    /// <summary>联网模式变更。</summary>
+    public event Action<ClientNetworkMode>? NetworkModeChanged;
+
+    /// <summary>自动登录上下文（次数等）。</summary>
+    public int LastMaxAttempts => MaxAttempts;
+
+    /// <summary>交卷后练习标志。</summary>
+    public bool LastAllowPractice => AllowPracticeAfterSubmit;
+
+    partial void OnNetworkModeChanged(ClientNetworkMode value) => NetworkModeChanged?.Invoke(value);
+
+    partial void OnIsOfflineModeChanged(bool value) => OnPropertyChanged(nameof(LoginButtonText));
+
+    partial void OnCanLoginChanged(bool value) => OnPropertyChanged(nameof(LoginButtonText));
 
     /// <summary>
-    /// 姓名。
-    /// </summary>
-    [ObservableProperty]
-    private string _studentName = string.Empty;
-
-    /// <summary>
-    /// 自动发现状态提示。
-    /// </summary>
-    [ObservableProperty]
-    private string _statusText = string.Empty;
-
-    /// <summary>
-    /// 是否已连接教师端（控制登录按钮可用性）。
-    /// </summary>
-    [ObservableProperty]
-    private bool _isConnected;
-
-    /// <summary>
-    /// 是否正在登录。
-    /// </summary>
-    [ObservableProperty]
-    private bool _isLoggingIn;
-
-    /// <summary>
-    /// 是否正在自动发现（用于显示进度提示）。
-    /// </summary>
-    [ObservableProperty]
-    private bool _isDiscovering;
-
-    /// <summary>
-    /// 是否展开手动输入教师端 IP 区域（自动发现超时后展开）。
-    /// </summary>
-    [ObservableProperty]
-    private bool _showManualInput;
-
-    /// <summary>
-    /// 手动输入的教师端 IP。
-    /// </summary>
-    [ObservableProperty]
-    private string _manualHost = string.Empty;
-
-    /// <summary>
-    /// 手动输入的教师端端口。
-    /// </summary>
-    [ObservableProperty]
-    private int _manualPort = 5800;
-
-    /// <summary>
-    /// 登录错误提示（学号/姓名空、未连接、登录失败等）。
-    /// </summary>
-    [ObservableProperty]
-    private string _errorMessage = string.Empty;
-
-    /// <summary>
-/// 登录成功事件（MainWindowViewModel 监听以切换到考试页）。
-/// </summary>
-public event Action<string>? LoginSucceeded;
-
-    /// <summary>
-    /// 启动自动发现（页面 Loaded 时调用）。
+    /// 启动：默认单机；若配置了 IP 则尝试 Ping+连接。
     /// </summary>
     [RelayCommand]
     private async Task StartDiscoveryAsync()
     {
-        if (_discovery is null)
+        ErrorMessage = string.Empty;
+        if (string.IsNullOrWhiteSpace(ManualHost))
+        {
+            EnterOffline("未配置教师 IP，保持单机模式。");
+            return;
+        }
+
+        NetworkMode = ClientNetworkMode.Connecting;
+        StatusText = "正在 Ping 教师端...";
+        if (!StudentConnectionService.PingHost(ManualHost))
+        {
+            EnterOffline("Ping 失败，保持单机模式。可检查 IP 后重试。");
+            return;
+        }
+
+        if (_connection is null)
         {
             return;
         }
-        IsDiscovering = true;
-        ShowManualInput = false;
-        StatusText = "正在自动发现教师端...";
+
         try
         {
-            await _discovery.StartDiscoveryAsync().ConfigureAwait(true);
+            StatusText = "Ping 通，正在连接...";
+            var ack = await _connection.ConnectAndHelloAsync(ManualHost, ManualPort).ConfigureAwait(true);
+            if (ack is null)
+            {
+                EnterOffline("握手超时，保持单机模式。");
+                return;
+            }
+
+            ApplyHelloAck(ack);
+            SaveConfig();
         }
         catch (Exception ex)
         {
-            StatusText = "自动发现异常：" + ex.Message;
-        }
-        finally
-        {
-            IsDiscovering = false;
+            EnterOffline("连接失败：" + ex.Message);
+            _logger?.LogWarning(ex, "连接教师端失败");
         }
     }
 
     /// <summary>
-    /// 手动连接教师端（兜底流程）。
+    /// 保存并连接。
     /// </summary>
     [RelayCommand]
     private async Task ManualConnectAsync()
     {
-        if (_discovery is null)
-        {
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(ManualHost))
-        {
-            ErrorMessage = "请输入教师端 IP。";
-            return;
-        }
-        ErrorMessage = string.Empty;
-        StatusText = "正在连接教师端：" + ManualHost + ":" + ManualPort;
-        try
-        {
-            await _discovery.ManuallyConnectAsync(ManualHost, ManualPort).ConfigureAwait(true);
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = "连接失败：" + ex.Message;
-            StatusText = "连接失败，请检查 IP 与端口";
-        }
+        SaveConfig();
+        await StartDiscoveryAsync().ConfigureAwait(true);
     }
 
     /// <summary>
-    /// 提交签到登录。
+    /// 登录或单机练习。
     /// </summary>
     [RelayCommand]
     private async Task LoginAsync()
     {
-        if (_auth is null)
-        {
-            return;
-        }
         ErrorMessage = string.Empty;
+        if (string.IsNullOrWhiteSpace(StudentId) || string.IsNullOrWhiteSpace(StudentName))
+        {
+            ErrorMessage = "请输入学号与姓名。";
+            return;
+        }
 
-        if (string.IsNullOrWhiteSpace(StudentId))
+        if (IsOfflineMode)
         {
-            ErrorMessage = "请输入学号。";
+            LoginSucceeded?.Invoke(StudentId, true);
             return;
         }
-        if (string.IsNullOrWhiteSpace(StudentName))
+
+        if (!CanLogin || _auth is null)
         {
-            ErrorMessage = "请输入姓名。";
-            return;
-        }
-        if (!IsConnected)
-        {
-            ErrorMessage = "尚未连接教师端，请等待自动发现或手动输入 IP。";
+            ErrorMessage = ExamRunning ? "请稍候..." : "当前未开考，仅可联网练习或等待教师开考后登录。";
             return;
         }
 
@@ -211,17 +193,20 @@ public event Action<string>? LoginSucceeded;
             var result = await _auth.LoginAsync(StudentId, StudentName).ConfigureAwait(true);
             if (result.Success)
             {
-                StatusText = "登录成功，等待开考...";
-                LoginSucceeded?.Invoke(StudentId);
+                MaxAttempts = result.MaxAttempts > 0 ? result.MaxAttempts : 1;
+                AllowPracticeAfterSubmit = result.AllowPracticeAfterSubmit;
+                StatusText = "登录成功";
+                NetworkMode = ClientNetworkMode.Online;
+                LoginSucceeded?.Invoke(StudentId, false);
             }
             else
             {
-                ErrorMessage = result.ErrorMessage ?? "登录失败。";
+                ErrorMessage = result.ErrorMessage ?? "登录失败";
             }
         }
         catch (Exception ex)
         {
-            ErrorMessage = "登录异常：" + ex.Message;
+            ErrorMessage = ex.Message;
         }
         finally
         {
@@ -229,33 +214,121 @@ public event Action<string>? LoginSucceeded;
         }
     }
 
-    private void OnTeacherDiscovered(System.Net.IPAddress ip, int port)
+    /// <summary>
+    /// 应用开考广播后允许登录。
+    /// </summary>
+    public void OnExamStarted(int maxAttempts, bool allowPractice)
     {
-        StatusText = "已发现教师端：" + ip + ":" + port;
+        ExamRunning = true;
+        CanLogin = true;
+        MaxAttempts = maxAttempts;
+        AllowPracticeAfterSubmit = allowPractice;
+        StatusText = "考试已开始，请登录。";
+        OnPropertyChanged(nameof(LoginButtonText));
     }
 
-    private void OnDiscoveryTimeout()
+    /// <summary>
+    /// 应用自动登录。
+    /// </summary>
+    public void ApplyAutoLogin(string studentId, string name, int maxAttempts, bool allowPractice)
     {
-        IsDiscovering = false;
-        StatusText = "自动发现超时，请手动输入教师端 IP。";
-        ShowManualInput = true;
+        StudentId = studentId;
+        StudentName = name;
+        MaxAttempts = maxAttempts;
+        AllowPracticeAfterSubmit = allowPractice;
+        ExamRunning = true;
+        CanLogin = true;
+        IsOfflineMode = false;
+        IsConnected = true;
+        NetworkMode = ClientNetworkMode.Online;
+        StatusText = "已自动登录：" + studentId;
+        LoginSucceeded?.Invoke(studentId, false);
     }
 
-    private void OnConnected()
+    private void ApplyHelloAck(Models.Dtos.HelloAckDto ack)
     {
         IsConnected = true;
-        IsDiscovering = false;
-        StatusText = "已连接教师端，请填写学号/姓名后签到。";
+        IsOfflineMode = false;
+        NetworkMode = ClientNetworkMode.Online;
+        ExamRunning = ack.ExamRunning;
+        CanLogin = ack.ExamRunning;
+        MaxAttempts = ack.MaxAttempts > 0 ? ack.MaxAttempts : 1;
+        AllowPracticeAfterSubmit = ack.AllowPracticeAfterSubmit;
+
+        if (ack.AutoLogin && !string.IsNullOrEmpty(ack.StudentId))
+        {
+            ApplyAutoLogin(ack.StudentId, ack.StudentName, MaxAttempts, AllowPracticeAfterSubmit);
+            return;
+        }
+
+        StatusText = ack.ExamRunning
+            ? "已连接教师端，考试进行中，请登录。"
+            : "已连接教师端（未开考），可练习，开考后登录。";
+        OnPropertyChanged(nameof(LoginButtonText));
+    }
+
+    private void EnterOffline(string status)
+    {
+        IsOfflineMode = true;
+        IsConnected = false;
+        CanLogin = false;
+        ExamRunning = false;
+        NetworkMode = ClientNetworkMode.Offline;
+        StatusText = status;
+    }
+
+    private void SaveConfig()
+    {
+        _config.TeacherHost = ManualHost?.Trim() ?? string.Empty;
+        _config.TeacherPort = ManualPort;
+        _config.Save();
+    }
+
+    private Task OnPacketReceived(MessageType type, byte[] payload)
+    {
+        if (type != MessageType.ExamLifecycle)
+        {
+            return Task.CompletedTask;
+        }
+
+        try
+        {
+            using var ms = new MemoryStream(payload);
+            var life = Serializer.Deserialize<ExamLifecycleDto>(ms);
+            if (life.Started)
+            {
+                OnExamStarted(life.MaxAttempts > 0 ? life.MaxAttempts : 1, life.AllowPracticeAfterSubmit);
+            }
+            else
+            {
+                ExamRunning = false;
+                CanLogin = false;
+                StatusText = string.IsNullOrEmpty(life.Message)
+                    ? "考试已结束。"
+                    : life.Message;
+                OnPropertyChanged(nameof(LoginButtonText));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "ExamLifecycle 解析失败");
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (_discovery is not null)
+        if (_disposed)
         {
-            _discovery.TeacherDiscovered -= OnTeacherDiscovered;
-            _discovery.DiscoveryTimeout -= OnDiscoveryTimeout;
-            _discovery.Connected -= OnConnected;
+            return;
+        }
+
+        _disposed = true;
+        if (_client is not null)
+        {
+            _client.PacketReceived -= OnPacketReceived;
         }
     }
 }

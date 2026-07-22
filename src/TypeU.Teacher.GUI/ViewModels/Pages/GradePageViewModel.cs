@@ -64,6 +64,7 @@ public sealed partial class GradePageViewModel : ViewModelBase
             {
                 StudentId = r.StudentId,
                 Name = r.Name,
+                AttemptIndex = r.AttemptIndex,
                 Speed = r.Speed,
                 Accuracy = r.Accuracy,
                 Anomalies = r.Anomalies,
@@ -111,6 +112,9 @@ public sealed class GradeRow
 
     /// <summary>姓名。</summary>
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>第几次。</summary>
+    public int AttemptIndex { get; set; }
 
     /// <summary>速度（字/分钟）。</summary>
     public double Speed { get; set; }

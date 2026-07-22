@@ -8,12 +8,23 @@
 ## 快速开始
 
 ```bash
-# 需要 .NET 10 SDK
+# 需要 .NET 10 SDK（目标平台：Windows 10 1809+ / Linux x64，不支持 Win7）
 dotnet build TypeU.slnx
 dotnet run --project src/TypeU.Teacher.GUI
 dotnet run --project src/TypeU.Student.GUI
 dotnet test src/TypeU.Tests
+
+# Native AOT 发布
+./scripts/publish-aot.ps1 -Runtime win-x64
 ```
+
+## 考试流程（摘要）
+
+- 学生默认单机；配置教师 IP 后 Ping→TCP→Hello
+- 仅教师「开始考试」后可登录；登录后禁止自行退出
+- 重考 1–5 次，每次成绩提交；导出含各次成绩与最高成绩
+- 结束考试后学生可自选登出；教师可单独「允许登出」
+- 开考会话/登录名单/成绩持久化，教师端可恢复未结束考试
 
 ## 文档
 
@@ -21,10 +32,8 @@ dotnet test src/TypeU.Tests
 | :--- | :--- |
 | [项目介绍](docs/项目介绍.md) | 背景、功能、架构与技术选型 |
 | [项目方案](docs/项目方案.md) | 总体技术方案规格与验收场景 |
-| [二次开发指南](docs/二次开发指南.md) | 环境、目录约定、扩展方式与发布 |
-| [Win7 兼容性说明](docs/Win7兼容性说明.md) | 平台支持与 Win7 不兼容说明 |
-| [需求文档](需求文档.md) | 产品需求（PRD） |
+| [需求文档](docs/需求文档.md) | 产品需求（PRD） |
 
 ## 技术栈（摘要）
 
-.NET 10 · Avalonia UI · TCP + 自定义二进制协议 · SQLite · Native AOT
+.NET 10 · Avalonia UI 12 · TCP + 自定义二进制协议 · SQLite · Native AOT

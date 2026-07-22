@@ -59,6 +59,7 @@ public partial class App : Application
             services.AddSingleton<QuestionRepository>();
             services.AddSingleton<ExamRepository>();
             services.AddSingleton<StudentRepository>();
+            services.AddSingleton<SessionLoginRepository>();
             services.AddSingleton<QuestionService>();
             services.AddSingleton<DeviceBindingService>();
             services.AddSingleton<GradeService>();
@@ -88,6 +89,7 @@ public partial class App : Application
         {
             _services.GetRequiredService<DatabaseInitializer>().Initialize();
             _logger.LogInformation("数据库初始化完成：{File}", "typeu-teacher.db");
+            _services.GetRequiredService<TeacherExamService>().TryRestoreRunningSession();
         }
         catch (Exception ex)
         {

@@ -23,6 +23,18 @@ public sealed class LoginResult
 
     /// <summary>教师端返回的会话起始时间戳（UTC 毫秒，可选）。</summary>
     public long ServerTimestampMs { get; init; }
+
+    /// <summary>是否锁定退出。</summary>
+    public bool LogoutLocked { get; init; }
+
+    /// <summary>会话 ID。</summary>
+    public Guid SessionId { get; init; }
+
+    /// <summary>最大测验次数。</summary>
+    public int MaxAttempts { get; init; } = 1;
+
+    /// <summary>交卷后是否允许自由练习。</summary>
+    public bool AllowPracticeAfterSubmit { get; init; }
 }
 
 /// <summary>
@@ -120,7 +132,11 @@ public sealed class StudentAuthService
             {
                 Success = ack.Success,
                 ErrorMessage = string.IsNullOrEmpty(ack.ErrorMessage) ? null : ack.ErrorMessage,
-                ServerTimestampMs = ack.ServerTimestampMs
+                ServerTimestampMs = ack.ServerTimestampMs,
+                LogoutLocked = ack.LogoutLocked,
+                SessionId = ack.SessionId,
+                MaxAttempts = ack.MaxAttempts > 0 ? ack.MaxAttempts : 1,
+                AllowPracticeAfterSubmit = ack.AllowPracticeAfterSubmit
             });
         }
         catch (Exception ex)

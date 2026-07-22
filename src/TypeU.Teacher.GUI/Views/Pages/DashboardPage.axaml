@@ -50,18 +50,25 @@
             <!-- 操作行 -->
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="刷新" Command="{Binding RefreshCommand}"/>
+                <Button Content="允许选中学生登出" Command="{Binding AllowLogoutCommand}"
+                        CommandParameter="{Binding SelectedStudent}"/>
             </StackPanel>
 
             <!-- 学生列表 -->
             <Border Classes="card">
                 <StackPanel Spacing="12">
                     <TextBlock Text="学生列表" Classes="subtitle"/>
-                    <DataGrid ItemsSource="{Binding Students}" AutoGenerateColumns="False" IsReadOnly="True" MinHeight="200" x:CompileBindings="False">
+                    <DataGrid ItemsSource="{Binding Students}" AutoGenerateColumns="False"
+                              SelectedItem="{Binding SelectedStudent, Mode=TwoWay}"
+                              IsReadOnly="True" MinHeight="200" x:CompileBindings="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="学号" Binding="{Binding StudentId}"/>
                             <DataGridTextColumn Header="姓名" Binding="{Binding Name}"/>
                             <DataGridTextColumn Header="IP" Binding="{Binding ClientIp}"/>
+                            <DataGridTextColumn Header="模式" Binding="{Binding ClientMode}"/>
                             <DataGridTextColumn Header="速度" Binding="{Binding Speed}"/>
+                            <DataGridCheckBoxColumn Header="最小化" Binding="{Binding IsMinimized}"/>
+                            <DataGridCheckBoxColumn Header="已登录" Binding="{Binding IsLoggedIn}"/>
                             <DataGridTextColumn Header="正确率" Binding="{Binding Accuracy}"/>
                             <DataGridTextColumn Header="异常" Binding="{Binding AnomalyCount}"/>
                         </DataGrid.Columns>

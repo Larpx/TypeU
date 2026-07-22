@@ -115,7 +115,7 @@ public sealed class EndToEndTests : IDisposable
         };
 
         // 教师端开始考试。
-        await _examSvc.StartAsync(ExamMode.TimedSprint, question.QuestionId, 600);
+        await _examSvc.StartAsync(ExamMode.TimedSprint, question.QuestionId, 600, maxAttempts: 2, allowPracticeAfterSubmit: false);
 
         // 验证学生端收到试题。
         await Task.WhenAny(questionTcs.Task, Task.Delay(TimeSpan.FromSeconds(3)));
@@ -204,7 +204,8 @@ public sealed class EndToEndTests : IDisposable
 
         // 教师端停止考试。
         await _examSvc.StopAsync();
-        Assert.Null(_examSvc.CurrentSession);
+        Assert.NotNull(_examSvc.CurrentSession);
+        Assert.Equal(ExamSessionStatus.Ended, _examSvc.CurrentSession!.Status);
     }
 
     /// <summary>
@@ -273,7 +274,7 @@ public sealed class EndToEndTests : IDisposable
             return Task.CompletedTask;
         };
 
-        await _examSvc.StartAsync(ExamMode.FixedLength, question.QuestionId, 300);
+        await _examSvc.StartAsync(ExamMode.FixedLength, question.QuestionId, 300, maxAttempts: 1, allowPracticeAfterSubmit: true);
         await _examSvc.RestartAsync();
 
         await Task.WhenAny(secondPushTcs.Task, Task.Delay(TimeSpan.FromSeconds(3)));

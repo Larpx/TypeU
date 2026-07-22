@@ -16,7 +16,7 @@ public enum ExamMode
     TimedSprint = 1,
 
     /// <summary>
-    /// 纠错模式：原文带错误，需在打字时纠正。
+    /// 纠错模式：下发含错原文，学生输入修正后的正确文本并计分。
     /// </summary>
     ErrorCorrection = 2
 }

@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <RootNamespace>Larpx.PersonalTools.TypeU.Services</RootNamespace>
+    <Description>TypeU 业务服务：教师端与学生端考试流程。</Description>
+    <AssemblyTitle>TypeU.Services</AssemblyTitle>
   </PropertyGroup>
 
   <ItemGroup>

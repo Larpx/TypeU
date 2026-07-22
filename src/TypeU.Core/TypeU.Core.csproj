@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <RootNamespace>Larpx.PersonalTools.TypeU.Core</RootNamespace>
+    <Description>TypeU 核心库：设备指纹、防作弊与共享引导。</Description>
+    <AssemblyTitle>TypeU.Core</AssemblyTitle>
   </PropertyGroup>
 
   <ItemGroup>

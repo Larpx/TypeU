@@ -8,7 +8,8 @@
              x:DataType="vm:ExamPageViewModel"
              Loaded="OnLoaded"
              ContextRequested="OnContextRequested"
-             KeyDown="OnKeyDown">
+             KeyDown="OnKeyDown"
+             DragDrop.AllowDrop="True">
 
     <Design.DataContext>
         <vm:ExamPageViewModel/>
@@ -19,32 +20,75 @@
         <Grid Grid.Row="0" ColumnDefinitions="*, 280">
             <!-- 原文 + 输入区 -->
             <Border Grid.Column="0" Classes="card" Margin="24,24,12,12" Padding="32,24">
-                <Grid RowDefinitions="Auto, *, Auto">
-                    <TextBlock Grid.Row="0" Text="原文（按行号对照输入）" Classes="subtitle" Margin="0,0,0,16"/>
+                <Grid RowDefinitions="Auto, *, Auto, Auto">
+                    <TextBlock Grid.Row="0" Text="{Binding PromptTitle}" Classes="subtitle" Margin="0,0,0,16"/>
 
-                    <!-- 原文显示区：字符级高亮 -->
-                    <Border Grid.Row="1" BorderBrush="#e2e8f0" BorderThickness="1" CornerRadius="6" Padding="16,12">
-                        <ItemsControl x:CompileBindings="False" ItemsSource="{Binding Chars}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Character}"
-                                               FontSize="20"
-                                               FontFamily="Cascadia Code, Consolas, monospace"
-                                               Margin="0,0,0,2"
-                                               Classes.correct="{Binding IsCorrect}"
-                                               Classes.wrong="{Binding IsWrong}"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                    <!-- 原文显示区：行号 + 字符级高亮 -->
+                    <Border Grid.Row="1" BorderBrush="#e2e8f0" BorderThickness="1" CornerRadius="6" Padding="0"
+                            Background="#0f172a0A">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:CompileBindings="False" ItemsSource="{Binding Lines}" Margin="8,8,12,8">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="48, *" Margin="0,1">
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding LineNumberText}"
+                                                       FontSize="18"
+                                                       FontFamily="Cascadia Code, Consolas, monospace"
+                                                       Foreground="#94a3b8"
+                                                       VerticalAlignment="Top"
+                                                       Margin="0,0,8,0"/>
+                                            <ItemsControl Grid.Column="1" ItemsSource="{Binding Chars}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Character}"
+                                                                   FontSize="20"
+                                                                   FontFamily="Cascadia Code, Consolas, monospace"
+                                                                   Margin="0,0,0,2"
+                                                                   Classes.correct="{Binding IsCorrect}"
+                                                                   Classes.wrong="{Binding IsWrong}"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- 纠错模式：输入校对条（比对参考答案，不展示答案原文） -->
+                    <Border Grid.Row="2" Margin="0,12,0,0" Padding="12,8"
+                            BorderBrush="#e2e8f0" BorderThickness="1" CornerRadius="6"
+                            IsVisible="{Binding IsErrorCorrectionMode}">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="输入校对（相对参考答案）" Classes="caption"/>
+                            <ItemsControl x:CompileBindings="False" ItemsSource="{Binding InputHighlightChars}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Character}"
+                                                   FontSize="18"
+                                                   FontFamily="Cascadia Code, Consolas, monospace"
+                                                   Classes.correct="{Binding IsCorrect}"
+                                                   Classes.wrong="{Binding IsWrong}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </Border>
 
                     <!-- 输入区 -->
-                    <TextBox Grid.Row="2"
+                    <TextBox Grid.Row="3"
                              Text="{Binding InputText, Mode=TwoWay}"
                              TextChanged="HandleInputTextChanged"
                              AcceptsReturn="True"
@@ -53,17 +97,16 @@
                              FontFamily="Cascadia Code, Consolas, monospace"
                              Padding="12,8"
                              Margin="0,16,0,0"
-                             PlaceholderText="在此输入原文..."
+                             PlaceholderText="在此输入..."
                              MinHeight="120"/>
                 </Grid>
             </Border>
 
             <!-- 右侧仪表盘 -->
             <Border Grid.Column="1" Classes="card" Margin="12,24,24,12" Padding="24">
-                <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
                     <TextBlock Grid.Row="0" Text="考试仪表盘" Classes="subtitle" HorizontalAlignment="Center" Margin="0,0,0,16"/>
 
-                    <!-- 圆形进度环（剩余时间占比） -->
                     <Border Grid.Row="1" HorizontalAlignment="Center" Margin="0,0,0,16"
                             Width="160" Height="160" CornerRadius="80"
                             BorderBrush="#e2e8f0" BorderThickness="12"
@@ -74,9 +117,11 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Grid.Row="2" Text="{Binding ExamStateText}" Classes="caption" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                    <TextBlock Grid.Row="2" Text="{Binding ExamStateText}" Classes="caption" HorizontalAlignment="Center"
+                               TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock Grid.Row="3" Text="{Binding AttemptHint}" Classes="caption" HorizontalAlignment="Center" Margin="0,0,0,12"/>
 
-                    <Grid Grid.Row="3" ColumnDefinitions="*, *" Margin="0,0,0,8">
+                    <Grid Grid.Row="4" ColumnDefinitions="*, *" Margin="0,0,0,8">
                         <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="2">
                             <TextBlock Text="{Binding CurrentSpeed, StringFormat={}{0:F1}}" FontSize="22" FontWeight="600" HorizontalAlignment="Center"/>
                             <TextBlock Text="字/分钟" Classes="caption" HorizontalAlignment="Center"/>
@@ -87,7 +132,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <Grid Grid.Row="4" ColumnDefinitions="*, *">
+                    <Grid Grid.Row="5" ColumnDefinitions="*, *">
                         <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="2">
                             <TextBlock Text="{Binding InputCount}" FontSize="18" FontWeight="600" HorizontalAlignment="Center"/>
                             <TextBlock Text="已输入" Classes="caption" HorizontalAlignment="Center"/>
@@ -97,6 +142,10 @@
                             <TextBlock Text="总字符" Classes="caption" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
+
+                    <Button Grid.Row="6" Content="再考一次" Command="{Binding RetryAttemptCommand}"
+                            Classes="primary" Margin="0,16,0,0" HorizontalAlignment="Stretch"
+                            IsVisible="{Binding CanRetryAttempt}"/>
                 </Grid>
             </Border>
         </Grid>

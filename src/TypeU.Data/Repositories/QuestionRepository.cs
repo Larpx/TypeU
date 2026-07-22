@@ -15,6 +15,7 @@ public sealed class QuestionRepository : RepositoryBase
     /// <summary>
     /// 初始化仓储。
     /// </summary>
+    /// <param name="factory">连接工厂。</param>
     public QuestionRepository(SqliteConnectionFactory factory) : base(factory)
     {
     }
@@ -22,11 +23,13 @@ public sealed class QuestionRepository : RepositoryBase
     /// <summary>
     /// 根据试题 ID 查询。
     /// </summary>
+    /// <param name="questionId">试题 ID。</param>
+    /// <returns>试题实体；不存在时为 null。</returns>
     public Question? GetById(Guid questionId)
     {
         using var conn = OpenConnection();
         var row = conn.QueryFirstOrDefault<QuestionRow>(
-            "SELECT QuestionId, Type, Content, CreatedAt FROM Questions WHERE QuestionId = @QuestionId;",
+            "SELECT QuestionId, Type, Content, CreatedAt, ExpectedContent FROM Questions WHERE QuestionId = @QuestionId;",
             new { QuestionId = questionId.ToString("D") });
         return row?.ToEntity();
     }
@@ -34,22 +37,25 @@ public sealed class QuestionRepository : RepositoryBase
     /// <summary>
     /// 获取全部试题。
     /// </summary>
+    /// <returns>按创建时间倒序的试题列表。</returns>
     public IReadOnlyList<Question> GetAll()
     {
         using var conn = OpenConnection();
         var rows = conn.Query<QuestionRow>(
-            "SELECT QuestionId, Type, Content, CreatedAt FROM Questions ORDER BY CreatedAt DESC;");
+            "SELECT QuestionId, Type, Content, CreatedAt, ExpectedContent FROM Questions ORDER BY CreatedAt DESC;");
         return rows.Select(r => r.ToEntity()).ToList();
     }
 
     /// <summary>
     /// 按类型筛选试题。
     /// </summary>
+    /// <param name="type">试题类型。</param>
+    /// <returns>匹配类型的试题列表。</returns>
     public IReadOnlyList<Question> GetByType(QuestionType type)
     {
         using var conn = OpenConnection();
         var rows = conn.Query<QuestionRow>(
-            "SELECT QuestionId, Type, Content, CreatedAt FROM Questions WHERE Type = @Type ORDER BY CreatedAt DESC;",
+            "SELECT QuestionId, Type, Content, CreatedAt, ExpectedContent FROM Questions WHERE Type = @Type ORDER BY CreatedAt DESC;",
             new { Type = (int)type });
         return rows.Select(r => r.ToEntity()).ToList();
     }
@@ -57,6 +63,7 @@ public sealed class QuestionRepository : RepositoryBase
     /// <summary>
     /// 插入试题。
     /// </summary>
+    /// <param name="question">试题实体。</param>
     public void Insert(Question question)
     {
         if (question is null)
@@ -67,8 +74,8 @@ public sealed class QuestionRepository : RepositoryBase
         using var conn = OpenConnection();
         conn.Execute(
             """
-            INSERT INTO Questions (QuestionId, Type, Content, CreatedAt)
-            VALUES (@QuestionId, @Type, @Content, @CreatedAt);
+            INSERT INTO Questions (QuestionId, Type, Content, CreatedAt, ExpectedContent)
+            VALUES (@QuestionId, @Type, @Content, @CreatedAt, @ExpectedContent);
             """,
             QuestionRow.FromEntity(question));
     }
@@ -76,6 +83,7 @@ public sealed class QuestionRepository : RepositoryBase
     /// <summary>
     /// 更新试题。
     /// </summary>
+    /// <param name="question">试题实体。</param>
     public void Update(Question question)
     {
         if (question is null)
@@ -87,7 +95,7 @@ public sealed class QuestionRepository : RepositoryBase
         conn.Execute(
             """
             UPDATE Questions
-            SET Type = @Type, Content = @Content
+            SET Type = @Type, Content = @Content, ExpectedContent = @ExpectedContent
             WHERE QuestionId = @QuestionId;
             """,
             QuestionRow.FromEntity(question));
@@ -96,6 +104,7 @@ public sealed class QuestionRepository : RepositoryBase
     /// <summary>
     /// 删除试题。
     /// </summary>
+    /// <param name="questionId">试题 ID。</param>
     public void Delete(Guid questionId)
     {
         using var conn = OpenConnection();
@@ -110,13 +119,15 @@ public sealed class QuestionRepository : RepositoryBase
         public int Type { get; set; }
         public string Content { get; set; } = string.Empty;
         public string CreatedAt { get; set; } = string.Empty;
+        public string ExpectedContent { get; set; } = string.Empty;
 
         public static QuestionRow FromEntity(Question e) => new()
         {
             QuestionId = e.QuestionId.ToString("D"),
             Type = (int)e.Type,
             Content = e.Content,
-            CreatedAt = e.CreatedAt.ToString("O")
+            CreatedAt = e.CreatedAt.ToString("O"),
+            ExpectedContent = e.ExpectedContent ?? string.Empty
         };
 
         public Question ToEntity() => new()
@@ -124,7 +135,8 @@ public sealed class QuestionRepository : RepositoryBase
             QuestionId = Guid.Parse(QuestionId),
             Type = (QuestionType)Type,
             Content = Content,
-            CreatedAt = DateTime.Parse(CreatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind)
+            CreatedAt = DateTime.Parse(CreatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind),
+            ExpectedContent = ExpectedContent ?? string.Empty
         };
     }
 }

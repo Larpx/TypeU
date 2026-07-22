@@ -8,7 +8,20 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors>nullable</WarningsAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- 源生成器成员（CommunityToolkit.Mvvm 等）可能无 XML；公共手写 API 已补齐注释。 -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- .NET 10 最低 Windows：10 1809（10.0.17763）；不支持 Windows 7/8/8.1。 -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::IsOSPlatform('Windows'))">10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::IsOSPlatform('Windows'))">10.0.17763.0</TargetPlatformMinVersion>
+
+    <!-- 程序集 / 产品元数据（各项目可覆盖 Description）。 -->
+    <Authors>Larpx</Authors>
+    <Company>Larpx.PersonalTools</Company>
+    <Product>TypeU</Product>
+    <Copyright>Copyright © Larpx</Copyright>
+    <Description>TypeU 局域网打字考试系统</Description>
+    <NeutralLanguage>zh-CN</NeutralLanguage>
   </PropertyGroup>
 
 </Project>

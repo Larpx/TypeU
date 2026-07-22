@@ -23,7 +23,7 @@ public sealed partial class QuestionDto
     public QuestionType Type { get; set; }
 
     /// <summary>
-    /// 试题正文。
+    /// 试题正文。纠错模式下为含错原文。
     /// </summary>
     [ProtoMember(3)]
     public string Content { get; set; } = string.Empty;
@@ -45,4 +45,22 @@ public sealed partial class QuestionDto
     /// </summary>
     [ProtoMember(6)]
     public Guid SessionId { get; set; }
+
+    /// <summary>
+    /// 参考答案。纠错模式下为正确文本；其它模式可为空。
+    /// </summary>
+    [ProtoMember(7)]
+    public string ExpectedContent { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 允许的测验次数（1–5）。
+    /// </summary>
+    [ProtoMember(8)]
+    public int MaxAttempts { get; set; } = 1;
+
+    /// <summary>
+    /// 交齐成绩后是否允许自由练习。
+    /// </summary>
+    [ProtoMember(9)]
+    public bool AllowPracticeAfterSubmit { get; set; }
 }

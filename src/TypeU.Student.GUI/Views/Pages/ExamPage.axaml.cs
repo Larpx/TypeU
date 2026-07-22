@@ -16,6 +16,8 @@ public partial class ExamPage : UserControl
     public ExamPage()
     {
         InitializeComponent();
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     private ExamPageViewModel? Vm => DataContext as ExamPageViewModel;
@@ -62,11 +64,36 @@ public partial class ExamPage : UserControl
         {
             return;
         }
+
         var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         if (vm.ShouldBlockClipboard() &&
             ((ctrl && e.Key == Key.V) || (shift && e.Key == Key.Insert)))
         {
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 拖拽经过：考试锁定时拒绝放置。
+    /// </summary>
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (Vm is { } vm && vm.ShouldBlockDragDrop())
+        {
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 拖拽放下：考试锁定时丢弃。
+    /// </summary>
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (Vm is { } vm && vm.ShouldBlockDragDrop())
+        {
+            e.DragEffects = DragDropEffects.None;
             e.Handled = true;
         }
     }

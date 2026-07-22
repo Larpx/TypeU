@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <RootNamespace>Larpx.PersonalTools.TypeU.Data</RootNamespace>
+    <Description>TypeU 数据访问：SQLite + Dapper 仓储。</Description>
+    <AssemblyTitle>TypeU.Data</AssemblyTitle>
   </PropertyGroup>
 
   <ItemGroup>

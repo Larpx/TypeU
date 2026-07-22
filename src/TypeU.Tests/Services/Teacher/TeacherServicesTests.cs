@@ -65,6 +65,20 @@ public sealed class TeacherServicesTests : IDisposable
         Assert.Equal(QuestionType.English, all.Single(q => q.Content.Contains("quick brown")).Type);
         Assert.Equal(QuestionType.Code, all.Single(q => q.Content.Contains("Console")).Type);
         Assert.Equal(QuestionType.Chinese, all.Single(q => q.Content == "无标记行默认中文").Type);
+
+        var correctionPath = Path.Combine(Path.GetTempPath(), $"typeu-txt-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(correctionPath, "[中文] 床前名月光|||床前明月光\n");
+        try
+        {
+            var result2 = svc.ImportFromTxt(correctionPath);
+            Assert.Equal(1, result2.Imported);
+            var correction = svc.GetAll().Single(q => q.Content == "床前名月光");
+            Assert.Equal("床前明月光", correction.ExpectedContent);
+        }
+        finally
+        {
+            File.Delete(correctionPath);
+        }
     }
 
     /// <summary>
@@ -174,7 +188,7 @@ public sealed class TeacherServicesTests : IDisposable
         svc.ResetAll();
 
         var state = svc.GetAllStates().Single();
-        Assert.Equal(StudentStatus.Online, state.Status);
+        Assert.Equal(StudentStatus.Examining, state.Status);
         Assert.Equal(0, state.Speed);
         Assert.Equal(0, state.AnomalyCount);
     }

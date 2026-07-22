@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <RootNamespace>Larpx.PersonalTools.TypeU.Network</RootNamespace>
+    <Description>TypeU 网络层：自定义二进制协议、TCP 与 UDP 发现。</Description>
+    <AssemblyTitle>TypeU.Network</AssemblyTitle>
   </PropertyGroup>
 
   <ItemGroup>

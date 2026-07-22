@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading;
 using System.Threading.Tasks;
 using Larpx.PersonalTools.TypeU.Data.Repositories;
 using Larpx.PersonalTools.TypeU.Models.Dtos;
@@ -16,7 +15,7 @@ using ProtoBuf;
 namespace Larpx.PersonalTools.TypeU.Services.Teacher;
 
 /// <summary>
-/// 教师端考试流程服务：开始/暂停/停止/重新考试 + 加密下发试题。
+/// 教师端考试流程：开考持久化、结束不强制登出、恢复未结束会话。
 /// </summary>
 public sealed class TeacherExamService
 {
@@ -26,6 +25,16 @@ public sealed class TeacherExamService
     private readonly MonitoringService _monitoring;
     private readonly ILogger<TeacherExamService>? _logger;
     private ExamSession? _currentSession;
+
+    /// <summary>
+    /// 教师工号（启动时录入）。
+    /// </summary>
+    public string TeacherId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 教师姓名（启动时录入）。
+    /// </summary>
+    public string TeacherName { get; set; } = string.Empty;
 
     /// <summary>
     /// 初始化服务。
@@ -45,22 +54,70 @@ public sealed class TeacherExamService
     }
 
     /// <summary>
-    /// 当前活动会话（未开始时为 null）。
+    /// 当前活动会话。
     /// </summary>
     public ExamSession? CurrentSession => _currentSession;
 
     /// <summary>
-    /// 开始考试：创建会话 + 加密下发试题 + 锁定学生端。
+    /// 是否存在进行中的考试。
     /// </summary>
-    public async Task StartAsync(ExamMode mode, Guid questionId, int durationSeconds)
+    public bool IsExamRunning => _currentSession is { Status: ExamSessionStatus.Running };
+
+    /// <summary>
+    /// 从数据库恢复未结束会话（教师端重启后调用）。
+    /// </summary>
+    public void TryRestoreRunningSession()
     {
-        if (_currentSession is not null)
+        var running = _examRepository.GetRunningSession();
+        if (running is null)
         {
-            throw new InvalidOperationException("已有进行中的考试会话，请先停止。");
+            return;
+        }
+
+        _currentSession = running;
+        if (!string.IsNullOrEmpty(running.TeacherId))
+        {
+            TeacherId = running.TeacherId;
+        }
+
+        if (!string.IsNullOrEmpty(running.TeacherName))
+        {
+            TeacherName = running.TeacherName;
+        }
+
+        _logger?.LogInformation("已恢复未结束考试会话 {SessionId}", running.SessionId);
+    }
+
+    /// <summary>
+    /// 开始考试并持久化。
+    /// </summary>
+    public async Task StartAsync(
+        ExamMode mode,
+        Guid questionId,
+        int durationSeconds,
+        int maxAttempts,
+        bool allowPracticeAfterSubmit)
+    {
+        if (_currentSession is { Status: ExamSessionStatus.Running })
+        {
+            throw new InvalidOperationException("已有进行中的考试会话，请先结束。");
+        }
+
+        // 清理已结束会话引用，开启新会话。
+        _currentSession = null;
+
+        if (maxAttempts < 1 || maxAttempts > 5)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxAttempts), "重考次数须为 1–5。");
         }
 
         var question = _questionRepository.GetById(questionId)
             ?? throw new InvalidOperationException("试题不存在。");
+
+        if (mode == ExamMode.ErrorCorrection && string.IsNullOrWhiteSpace(question.ExpectedContent))
+        {
+            throw new InvalidOperationException("纠错模式试题必须填写参考答案。");
+        }
 
         var now = DateTime.UtcNow;
         _currentSession = new ExamSession
@@ -70,7 +127,12 @@ public sealed class TeacherExamService
             QuestionId = questionId,
             StartedAt = now,
             EndedAt = DateTime.MinValue,
-            Duration = durationSeconds
+            Duration = durationSeconds,
+            MaxAttempts = maxAttempts,
+            AllowPracticeAfterSubmit = allowPracticeAfterSubmit,
+            TeacherId = TeacherId,
+            TeacherName = TeacherName,
+            Status = ExamSessionStatus.Running
         };
         _examRepository.InsertSession(_currentSession);
 
@@ -79,13 +141,27 @@ public sealed class TeacherExamService
             QuestionId = question.QuestionId,
             Type = question.Type,
             Content = question.Content,
+            ExpectedContent = question.ExpectedContent,
             Mode = mode,
             Duration = durationSeconds,
-            SessionId = _currentSession.SessionId
+            SessionId = _currentSession.SessionId,
+            MaxAttempts = maxAttempts,
+            AllowPracticeAfterSubmit = allowPracticeAfterSubmit
         };
 
-        var payload = SerializeProto(questionDto);
-        await _server.BroadcastAsync(MessageType.QuestionPush, payload).ConfigureAwait(false);
+        await _server.BroadcastAsync(MessageType.QuestionPush, SerializeProto(questionDto)).ConfigureAwait(false);
+
+        var life = new ExamLifecycleDto
+        {
+            SessionId = _currentSession.SessionId,
+            Started = true,
+            MaxAttempts = maxAttempts,
+            AllowPracticeAfterSubmit = allowPracticeAfterSubmit,
+            Mode = mode,
+            Duration = durationSeconds,
+            Message = "考试已开始，请登录后作答。"
+        };
+        await _server.BroadcastAsync(MessageType.ExamLifecycle, SerializeProto(life)).ConfigureAwait(false);
 
         var ctrl = new ExamControlMessage
         {
@@ -97,8 +173,8 @@ public sealed class TeacherExamService
         };
         await _server.BroadcastAsync(MessageType.ExamControl, SerializeProto(ctrl)).ConfigureAwait(false);
 
-        _logger?.LogInformation("开始考试：会话 {SessionId} 模式 {Mode} 时长 {Duration}s",
-            _currentSession.SessionId, mode, durationSeconds);
+        _logger?.LogInformation("开始考试：{SessionId} 模式 {Mode} 次数 {Attempts}",
+            _currentSession.SessionId, mode, maxAttempts);
     }
 
     /// <summary>
@@ -106,12 +182,12 @@ public sealed class TeacherExamService
     /// </summary>
     public async Task PauseAsync()
     {
-        if (_currentSession is null)
+        if (_currentSession is null || _currentSession.Status != ExamSessionStatus.Running)
         {
             return;
         }
+
         await SendControlAsync(ExamControlAction.Pause).ConfigureAwait(false);
-        _logger?.LogInformation("考试已暂停：{SessionId}", _currentSession.SessionId);
     }
 
     /// <summary>
@@ -119,16 +195,16 @@ public sealed class TeacherExamService
     /// </summary>
     public async Task ResumeAsync()
     {
-        if (_currentSession is null)
+        if (_currentSession is null || _currentSession.Status != ExamSessionStatus.Running)
         {
             return;
         }
+
         await SendControlAsync(ExamControlAction.Resume).ConfigureAwait(false);
-        _logger?.LogInformation("考试已恢复：{SessionId}", _currentSession.SessionId);
     }
 
     /// <summary>
-    /// 停止考试（收卷）：广播 Stop + 关闭会话。
+    /// 结束考试：持久化 Ended，广播可自行登出（不强制 Logout）。
     /// </summary>
     public async Task StopAsync()
     {
@@ -140,17 +216,31 @@ public sealed class TeacherExamService
         await SendControlAsync(ExamControlAction.Stop).ConfigureAwait(false);
 
         _currentSession.EndedAt = DateTime.UtcNow;
+        _currentSession.Status = ExamSessionStatus.Ended;
         _examRepository.UpdateSession(_currentSession);
-        _logger?.LogInformation("考试已停止：{SessionId}", _currentSession.SessionId);
-        _currentSession = null;
+
+        var life = new ExamLifecycleDto
+        {
+            SessionId = _currentSession.SessionId,
+            Started = false,
+            MaxAttempts = _currentSession.MaxAttempts,
+            AllowPracticeAfterSubmit = _currentSession.AllowPracticeAfterSubmit,
+            Mode = _currentSession.Mode,
+            Duration = _currentSession.Duration,
+            Message = "考试已结束，可自行登出以清除本机个人信息。"
+        };
+        await _server.BroadcastAsync(MessageType.ExamLifecycle, SerializeProto(life)).ConfigureAwait(false);
+
+        _logger?.LogInformation("考试已结束：{SessionId}", _currentSession.SessionId);
+        // 保留会话引用以便允许登出 / 成绩查询；下次 Start 前会覆盖。
     }
 
     /// <summary>
-    /// 重新考试：广播 Restart（学生端清空草稿、重置状态），监控看板清零，重新下发试题。
+    /// 重新考试：重置监控并重新下发试题。
     /// </summary>
     public async Task RestartAsync()
     {
-        if (_currentSession is null)
+        if (_currentSession is null || _currentSession.Status != ExamSessionStatus.Running)
         {
             throw new InvalidOperationException("无活动考试会话，无法重新考试。");
         }
@@ -158,25 +248,23 @@ public sealed class TeacherExamService
         await SendControlAsync(ExamControlAction.Restart).ConfigureAwait(false);
         _monitoring.ResetAll();
 
-        var question = _questionRepository.GetById(_currentSession.QuestionId);
-        if (question is null)
-        {
-            throw new InvalidOperationException("试题已被删除，无法重新考试。");
-        }
+        var question = _questionRepository.GetById(_currentSession.QuestionId)
+            ?? throw new InvalidOperationException("试题已被删除，无法重新考试。");
 
         var questionDto = new QuestionDto
         {
             QuestionId = question.QuestionId,
             Type = question.Type,
             Content = question.Content,
+            ExpectedContent = question.ExpectedContent,
             Mode = _currentSession.Mode,
             Duration = _currentSession.Duration,
-            SessionId = _currentSession.SessionId
+            SessionId = _currentSession.SessionId,
+            MaxAttempts = _currentSession.MaxAttempts,
+            AllowPracticeAfterSubmit = _currentSession.AllowPracticeAfterSubmit
         };
         await _server.BroadcastAsync(MessageType.QuestionPush, SerializeProto(questionDto)).ConfigureAwait(false);
         await SendControlAsync(ExamControlAction.Start).ConfigureAwait(false);
-
-        _logger?.LogInformation("考试已重新开始：{SessionId}", _currentSession.SessionId);
     }
 
     private async Task SendControlAsync(ExamControlAction action)
@@ -185,6 +273,7 @@ public sealed class TeacherExamService
         {
             return;
         }
+
         var ctrl = new ExamControlMessage
         {
             Action = action,

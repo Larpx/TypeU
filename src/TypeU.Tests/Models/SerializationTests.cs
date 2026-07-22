@@ -168,6 +168,7 @@ public class SerializationTests
             QuestionId = Guid.NewGuid(),
             Type = QuestionType.Chinese,
             Content = "床前明月光，疑是地上霜。",
+            ExpectedContent = "床前明月光，疑是地上霜。",
             Mode = ExamMode.FixedLength,
             Duration = 300,
             SessionId = Guid.NewGuid()
@@ -178,6 +179,7 @@ public class SerializationTests
         Assert.Equal(expected.QuestionId, actual.QuestionId);
         Assert.Equal(expected.Type, actual.Type);
         Assert.Equal(expected.Content, actual.Content);
+        Assert.Equal(expected.ExpectedContent, actual.ExpectedContent);
         Assert.Equal(expected.Mode, actual.Mode);
         Assert.Equal(expected.Duration, actual.Duration);
         Assert.Equal(expected.SessionId, actual.SessionId);
@@ -197,7 +199,8 @@ public class SerializationTests
             Speed = 65.2,
             Accuracy = 92.0,
             Anomalies = "[]",
-            SubmittedAt = new DateTime(2026, 7, 21, 11, 5, 0, DateTimeKind.Utc)
+            SubmittedAt = new DateTime(2026, 7, 21, 11, 5, 0, DateTimeKind.Utc),
+            AttemptIndex = 2
         };
 
         var actual = RoundTrip(expected);
@@ -209,6 +212,42 @@ public class SerializationTests
         Assert.Equal(expected.Accuracy, actual.Accuracy);
         Assert.Equal(expected.Anomalies, actual.Anomalies);
         Assert.Equal(expected.SubmittedAt, actual.SubmittedAt);
+        Assert.Equal(expected.AttemptIndex, actual.AttemptIndex);
+    }
+
+    /// <summary>
+    /// 验证 HelloAckDto / LoginAckDto 扩展字段可往返。
+    /// </summary>
+    [Fact]
+    public void HelloAndLoginAck_RoundTrip_PreservesNewFields()
+    {
+        var hello = RoundTrip(new HelloAckDto
+        {
+            ExamRunning = true,
+            AutoLogin = true,
+            StudentId = "S001",
+            StudentName = "张三",
+            SessionId = Guid.NewGuid(),
+            MaxAttempts = 3,
+            AllowPracticeAfterSubmit = true,
+            LogoutAllowed = false,
+            ServerTimestampMs = 123456
+        });
+        Assert.True(hello.ExamRunning);
+        Assert.True(hello.AutoLogin);
+        Assert.Equal(3, hello.MaxAttempts);
+
+        var login = RoundTrip(new LoginAckDto
+        {
+            Success = true,
+            LogoutLocked = true,
+            SessionId = Guid.NewGuid(),
+            MaxAttempts = 2,
+            AllowPracticeAfterSubmit = false,
+            ServerTimestampMs = 999
+        });
+        Assert.True(login.LogoutLocked);
+        Assert.Equal(2, login.MaxAttempts);
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Larpx.PersonalTools.TypeU.Services.Teacher;
 using Larpx.PersonalTools.TypeU.Teacher.GUI.Services;
 using Larpx.PersonalTools.TypeU.Teacher.GUI.ViewModels.Pages;
 
@@ -13,6 +14,7 @@ namespace Larpx.PersonalTools.TypeU.Teacher.GUI.ViewModels;
 public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly ThemeService _themeService;
+    private readonly TeacherExamService _examService;
     private readonly DashboardPageViewModel _dashboard;
     private readonly QuestionPageViewModel _questions;
     private readonly ExamControlPageViewModel _examControl;
@@ -26,6 +28,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// </summary>
     public MainWindowViewModel(
         ThemeService themeService,
+        TeacherExamService examService,
         DashboardPageViewModel dashboard,
         QuestionPageViewModel questions,
         ExamControlPageViewModel examControl,
@@ -34,6 +37,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         LanScanPageViewModel lanScan)
     {
         _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
+        _examService = examService ?? throw new ArgumentNullException(nameof(examService));
         _dashboard = dashboard ?? throw new ArgumentNullException(nameof(dashboard));
         _questions = questions ?? throw new ArgumentNullException(nameof(questions));
         _examControl = examControl ?? throw new ArgumentNullException(nameof(examControl));
@@ -51,6 +55,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _themeService.PropertyChanged += (_, _) => ThemeName = _themeService.CurrentTheme.ToString();
         ThemeName = _themeService.CurrentTheme.ToString();
+
+        if (!string.IsNullOrEmpty(_examService.TeacherId))
+        {
+            TeacherId = _examService.TeacherId;
+            TeacherName = _examService.TeacherName;
+            IsTeacherIdentified = true;
+        }
     }
 
     /// <summary>
@@ -70,6 +81,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// </summary>
     [ObservableProperty]
     private string _themeName = "Light";
+
+    /// <summary>教师工号。</summary>
+    [ObservableProperty]
+    private string _teacherId = string.Empty;
+
+    /// <summary>教师姓名。</summary>
+    [ObservableProperty]
+    private string _teacherName = string.Empty;
+
+    /// <summary>
+    /// 是否已完成教师身份录入。
+    /// </summary>
+    [ObservableProperty]
+    private bool _isTeacherIdentified;
 
     /// <summary>
     /// 异常告警浮窗是否展开。
@@ -104,6 +129,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             TeacherPage.LanScan => _lanScan,
             _ => _dashboard
         };
+    }
+
+    /// <summary>
+    /// 确认教师身份。
+    /// </summary>
+    [RelayCommand]
+    private void ConfirmTeacherIdentity()
+    {
+        if (string.IsNullOrWhiteSpace(TeacherId) || string.IsNullOrWhiteSpace(TeacherName))
+        {
+            return;
+        }
+
+        _examService.TeacherId = TeacherId.Trim();
+        _examService.TeacherName = TeacherName.Trim();
+        IsTeacherIdentified = true;
     }
 
     /// <summary>

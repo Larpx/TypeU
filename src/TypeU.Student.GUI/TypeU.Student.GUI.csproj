@@ -3,6 +3,9 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <RootNamespace>Larpx.PersonalTools.TypeU.Student.GUI</RootNamespace>
+    <Description>TypeU 学生端 Avalonia UI（TCP 客户端）。</Description>
+    <AssemblyTitle>TypeU.Student.GUI</AssemblyTitle>
+    <AssemblyName>Student</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <IsAotCompatible>true</IsAotCompatible>

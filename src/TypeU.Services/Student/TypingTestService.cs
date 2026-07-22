@@ -15,7 +15,7 @@ public sealed class CharCompareState
     /// <summary>字符位置。</summary>
     public int Index { get; init; }
 
-    /// <summary>原文该位置的字符。</summary>
+    /// <summary>比对基准该位置的字符。</summary>
     public char Expected { get; init; }
 
     /// <summary>学生输入该位置的字符（未输入为 null）。</summary>
@@ -30,13 +30,16 @@ public sealed class CharCompareState
 
 /// <summary>
 /// 打字测试服务：原文比对、实时高亮、速度与正确率计算。
-/// 速度算法：有效字符数 / 已用分钟数（WPM-like，按字符计）。
+/// 定篇/限时：比对 Content；纠错模式：展示 Content（含错原文），比对 ExpectedContent。
+/// 速度算法：有效字符数 / 已用分钟数（按字符计）。
 /// 正确率：正确字符数 / 已输入字符数 * 100。
 /// </summary>
 public sealed class TypingTestService
 {
     private readonly ILogger<TypingTestService>? _logger;
-    private string _originalText = string.Empty;
+    private string _displayText = string.Empty;
+    private string _compareText = string.Empty;
+    private ExamMode _mode;
     private readonly StringBuilder _input = new();
     private int _correctCount;
     private int _errorCount;
@@ -46,15 +49,31 @@ public sealed class TypingTestService
     /// <summary>
     /// 初始化服务。
     /// </summary>
+    /// <param name="logger">可选日志。</param>
     public TypingTestService(ILogger<TypingTestService>? logger = null)
     {
         _logger = logger;
     }
 
     /// <summary>
-    /// 当前试题原文（未开考时为空）。
+    /// 展示给学生的原文（纠错模式下为含错文本）。
     /// </summary>
-    public string OriginalText => _originalText;
+    public string OriginalText => _displayText;
+
+    /// <summary>
+    /// 计分比对基准文本（纠错模式下为参考答案）。
+    /// </summary>
+    public string CompareText => _compareText;
+
+    /// <summary>
+    /// 当前考试模式。
+    /// </summary>
+    public ExamMode Mode => _mode;
+
+    /// <summary>
+    /// 是否为纠错模式。
+    /// </summary>
+    public bool IsErrorCorrection => _mode == ExamMode.ErrorCorrection;
 
     /// <summary>
     /// 已输入的全部文本。
@@ -77,9 +96,9 @@ public sealed class TypingTestService
     public int ErrorCount => _errorCount;
 
     /// <summary>
-    /// 试题总字符数。
+    /// 比对基准总字符数。
     /// </summary>
-    public int TotalChars => _originalText.Length;
+    public int TotalChars => _compareText.Length;
 
     /// <summary>
     /// 是否已开始测试。
@@ -89,25 +108,44 @@ public sealed class TypingTestService
     /// <summary>
     /// 设置试题并重置输入状态（收到 QuestionPush 时调用）。
     /// </summary>
+    /// <param name="question">试题 DTO。</param>
     public void SetQuestion(QuestionDto question)
     {
         if (question is null)
         {
             throw new ArgumentNullException(nameof(question));
         }
-        _originalText = question.Content ?? string.Empty;
+
+        _mode = question.Mode;
+        _displayText = question.Content ?? string.Empty;
+        if (_mode == ExamMode.ErrorCorrection)
+        {
+            if (string.IsNullOrWhiteSpace(question.ExpectedContent))
+            {
+                throw new InvalidOperationException("纠错模式试题缺少参考答案。");
+            }
+
+            _compareText = question.ExpectedContent;
+        }
+        else
+        {
+            _compareText = _displayText;
+        }
+
         _input.Clear();
         _correctCount = 0;
         _errorCount = 0;
         _startUtc = DateTime.UtcNow;
         _started = true;
-        _logger?.LogInformation("打字测试就绪：{Length} 字符", _originalText.Length);
+        _logger?.LogInformation("打字测试就绪：模式 {Mode}，展示 {Display} 字，比对 {Compare} 字",
+            _mode, _displayText.Length, _compareText.Length);
     }
 
     /// <summary>
     /// 追加一个输入字符（已通过 AntiCheatMonitor 过滤）。
-    /// 返回该字符的比对结果。
     /// </summary>
+    /// <param name="c">输入字符。</param>
+    /// <returns>该字符的比对结果。</returns>
     public CharCompareState AppendChar(char c)
     {
         if (!_started)
@@ -118,11 +156,10 @@ public sealed class TypingTestService
         var index = _input.Length;
         _input.Append(c);
 
-        var expected = index < _originalText.Length ? _originalText[index] : '\0';
+        var expected = index < _compareText.Length ? _compareText[index] : '\0';
         bool isCorrect;
-        if (index >= _originalText.Length)
+        if (index >= _compareText.Length)
         {
-            // 超出原文长度：算作错误。
             isCorrect = false;
             _errorCount++;
         }
@@ -156,13 +193,14 @@ public sealed class TypingTestService
         {
             return;
         }
+
         var index = _input.Length - 1;
         var c = _input[index];
         _input.Remove(index, 1);
 
-        if (index < _originalText.Length)
+        if (index < _compareText.Length)
         {
-            if (_originalText[index] == c)
+            if (_compareText[index] == c)
             {
                 _correctCount = Math.Max(0, _correctCount - 1);
             }
@@ -178,46 +216,53 @@ public sealed class TypingTestService
     }
 
     /// <summary>
-    /// 计算当前进度（已输入字符数 / 总字符数）。
+    /// 计算当前进度（已输入字符数）。
     /// </summary>
+    /// <returns>已输入字符数。</returns>
     public int GetProgress() => _input.Length;
 
     /// <summary>
-    /// 计算当前速度（字/分钟），按有效字符数 / 已用分钟数。
+    /// 计算当前速度（字/分钟），按正确字符数 / 已用分钟数。
     /// </summary>
+    /// <returns>字/分钟。</returns>
     public double GetCurrentSpeed()
     {
         if (!_started || _input.Length == 0)
         {
             return 0;
         }
+
         var elapsed = DateTime.UtcNow - _startUtc;
         if (elapsed.TotalMinutes <= 0)
         {
             return 0;
         }
+
         return _correctCount / elapsed.TotalMinutes;
     }
 
     /// <summary>
     /// 计算当前正确率（0-100）。
     /// </summary>
+    /// <returns>正确率百分比。</returns>
     public double GetCurrentAccuracy()
     {
         if (_input.Length == 0)
         {
             return 100.0;
         }
+
         return _correctCount * 100.0 / _input.Length;
     }
 
     /// <summary>
-    /// 获取全部字符的比对状态（用于 UI 高亮渲染）。
+    /// 获取比对基准全部字符的比对状态（用于输入高亮；非纠错模式下也可叠在原文上）。
     /// </summary>
+    /// <returns>字符比对状态列表。</returns>
     public IReadOnlyList<CharCompareState> GetCompareStates()
     {
-        var list = new List<CharCompareState>(_originalText.Length);
-        for (var i = 0; i < _originalText.Length; i++)
+        var list = new List<CharCompareState>(_compareText.Length);
+        for (var i = 0; i < _compareText.Length; i++)
         {
             if (i < _input.Length)
             {
@@ -225,9 +270,9 @@ public sealed class TypingTestService
                 list.Add(new CharCompareState
                 {
                     Index = i,
-                    Expected = _originalText[i],
+                    Expected = _compareText[i],
                     Actual = actual,
-                    IsCorrect = actual == _originalText[i],
+                    IsCorrect = actual == _compareText[i],
                     IsEntered = true
                 });
             }
@@ -236,13 +281,14 @@ public sealed class TypingTestService
                 list.Add(new CharCompareState
                 {
                     Index = i,
-                    Expected = _originalText[i],
+                    Expected = _compareText[i],
                     Actual = null,
                     IsCorrect = false,
                     IsEntered = false
                 });
             }
         }
+
         return list;
     }
 

@@ -56,6 +56,7 @@ public partial class App : Application
             services.AddSingleton<ResultSubmitService>();
             services.AddSingleton<ClientTimeSyncService>();
             services.AddSingleton<StudentDiscoveryService>();
+            services.AddSingleton<StudentConnectionService>();
 
             // ViewModel。
             services.AddSingleton<LoginPageViewModel>();

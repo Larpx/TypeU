@@ -48,9 +48,13 @@ public sealed partial class QuestionPageViewModel : ViewModelBase
     [ObservableProperty]
     private QuestionType _editType = QuestionType.Chinese;
 
-    /// <summary>新建/编辑时的试题内容。</summary>
+    /// <summary>新建/编辑时的试题内容（纠错模式为含错原文）。</summary>
     [ObservableProperty]
     private string _editContent = string.Empty;
+
+    /// <summary>新建/编辑时的参考答案（纠错模式使用）。</summary>
+    [ObservableProperty]
+    private string _editExpectedContent = string.Empty;
 
     /// <summary>状态提示文本。</summary>
     [ObservableProperty]
@@ -85,8 +89,9 @@ public sealed partial class QuestionPageViewModel : ViewModelBase
             StatusText = "内容不能为空";
             return;
         }
-        _service.Add(EditType, EditContent);
+        _service.Add(EditType, EditContent, EditExpectedContent);
         EditContent = string.Empty;
+        EditExpectedContent = string.Empty;
         StatusText = "已新增";
         Refresh();
     }
@@ -99,7 +104,7 @@ public sealed partial class QuestionPageViewModel : ViewModelBase
         {
             return;
         }
-        _service.Update(SelectedQuestion.QuestionId, EditType, EditContent);
+        _service.Update(SelectedQuestion.QuestionId, EditType, EditContent, EditExpectedContent);
         StatusText = "已更新";
         Refresh();
     }
@@ -158,5 +163,6 @@ public sealed partial class QuestionPageViewModel : ViewModelBase
         }
         EditType = value.Type;
         EditContent = value.Content;
+        EditExpectedContent = value.ExpectedContent;
     }
 }

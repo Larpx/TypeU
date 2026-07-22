@@ -28,6 +28,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="学号" Binding="{Binding StudentId}"/>
                     <DataGridTextColumn Header="姓名" Binding="{Binding Name}"/>
+                    <DataGridTextColumn Header="次数" Binding="{Binding AttemptIndex}"/>
                     <DataGridTextColumn Header="速度(字/分钟)" Binding="{Binding Speed}"/>
                     <DataGridTextColumn Header="正确率(%)" Binding="{Binding Accuracy}"/>
                     <DataGridTextColumn Header="异常记录" Binding="{Binding Anomalies}"/>

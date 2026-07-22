@@ -27,6 +27,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="类型" Binding="{Binding Type}"/>
                     <DataGridTextColumn Header="内容" Binding="{Binding Content}"/>
+                    <DataGridTextColumn Header="参考答案" Binding="{Binding ExpectedContent}"/>
                     <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}"/>
                 </DataGrid.Columns>
             </DataGrid>
@@ -34,7 +35,7 @@
 
         <!-- 编辑区 -->
         <Border Grid.Row="2" Classes="card" Margin="0,12,0,0">
-            <Grid RowDefinitions="Auto, Auto, Auto" Margin="0,8">
+            <Grid RowDefinitions="Auto, Auto, Auto, Auto" Margin="0,8">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
                     <TextBlock Text="类型：" VerticalAlignment="Center"/>
                     <ComboBox SelectedItem="{Binding EditType, Mode=TwoWay}">
@@ -42,10 +43,13 @@
                         <ComboBoxItem Content="英文" Tag="{x:Static enums:QuestionType.English}"/>
                         <ComboBoxItem Content="代码" Tag="{x:Static enums:QuestionType.Code}"/>
                     </ComboBox>
+                    <TextBlock Text="纠错模式请同时填写下方参考答案" Classes="caption" VerticalAlignment="Center"/>
                 </StackPanel>
                 <TextBox Grid.Row="1" Text="{Binding EditContent, Mode=TwoWay}"
-                         PlaceholderText="试题内容" AcceptsReturn="True" MinHeight="80" Margin="0,0,0,8"/>
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+                         PlaceholderText="试题内容（纠错模式：含错原文）" AcceptsReturn="True" MinHeight="80" Margin="0,0,0,8"/>
+                <TextBox Grid.Row="2" Text="{Binding EditExpectedContent, Mode=TwoWay}"
+                         PlaceholderText="参考答案（纠错模式必填；其它模式可留空）" AcceptsReturn="True" MinHeight="60" Margin="0,0,0,8"/>
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
                     <Button Content="新增" Command="{Binding AddCommand}"/>
                     <Button Content="更新" Command="{Binding UpdateCommand}"/>
                     <Button Content="删除" Command="{Binding DeleteCommand}"/>

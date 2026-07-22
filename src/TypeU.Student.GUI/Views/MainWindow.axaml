@@ -15,5 +15,39 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <ContentControl Content="{Binding CurrentPage}"/>
+    <Grid RowDefinitions="*, Auto">
+        <Panel Grid.Row="0">
+            <ContentControl Content="{Binding CurrentPage}"/>
+            <Border IsVisible="{Binding ShowLogoutPrompt}"
+                    Background="#80000000"
+                    ZIndex="100">
+                <Border Classes="card" Width="420" Padding="28"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="考试已结束" Classes="subtitle" HorizontalAlignment="Center"/>
+                        <TextBlock Text="是否登出并清除本机个人信息？" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                            <Button Content="登出并清除" Classes="primary" Command="{Binding ConfirmLogoutCommand}"/>
+                            <Button Content="稍后" Command="{Binding DismissLogoutPromptCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+        </Panel>
+
+        <Border Grid.Row="1" Padding="16,6"
+                Background="{DynamicResource SystemRegionBrush}"
+                BorderBrush="#e2e8f0" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                <Button Grid.Column="0" Content="返回登录"
+                        Command="{Binding BackToLoginCommand}"
+                        Classes="link" Padding="4,2"
+                        IsVisible="{Binding !LogoutLocked}"/>
+                <TextBlock Grid.Column="1" Text="TypeU 学生端" Classes="caption"
+                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <TextBlock Grid.Column="2" Text="{Binding NetworkModeText}"
+                           Classes="caption" FontWeight="600" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>

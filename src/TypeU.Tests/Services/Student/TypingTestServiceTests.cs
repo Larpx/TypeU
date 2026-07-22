@@ -145,7 +145,7 @@ public sealed class TypingTestServiceTests
     }
 
     /// <summary>
-    /// 速度计算：1 个正确字符 / 60 秒 = 1 WPM。
+    /// 速度计算：无输入时为 0。
     /// </summary>
     [Fact]
     public void GetCurrentSpeed_ReturnsZero_WhenNoInput()
@@ -153,5 +153,57 @@ public sealed class TypingTestServiceTests
         var svc = new TypingTestService();
         svc.SetQuestion(MakeQuestion("abc"));
         Assert.Equal(0, svc.GetCurrentSpeed());
+    }
+
+    /// <summary>
+    /// 纠错模式：展示含错原文，按参考答案计分。
+    /// </summary>
+    [Fact]
+    public void ErrorCorrection_ComparesAgainstExpectedContent()
+    {
+        var svc = new TypingTestService();
+        svc.SetQuestion(new QuestionDto
+        {
+            QuestionId = Guid.NewGuid(),
+            Type = QuestionType.Chinese,
+            Content = "床前名月光",
+            ExpectedContent = "床前明月光",
+            Mode = ExamMode.ErrorCorrection,
+            Duration = 300,
+            SessionId = Guid.NewGuid()
+        });
+
+        Assert.True(svc.IsErrorCorrection);
+        Assert.Equal("床前名月光", svc.OriginalText);
+        Assert.Equal("床前明月光", svc.CompareText);
+        Assert.Equal(5, svc.TotalChars);
+
+        foreach (var ch in "床前明月光")
+        {
+            svc.AppendChar(ch);
+        }
+
+        Assert.Equal(5, svc.CorrectCount);
+        Assert.Equal(0, svc.ErrorCount);
+        Assert.Equal(100.0, svc.GetCurrentAccuracy());
+    }
+
+    /// <summary>
+    /// 纠错模式缺少参考答案时应失败。
+    /// </summary>
+    [Fact]
+    public void ErrorCorrection_MissingExpected_Throws()
+    {
+        var svc = new TypingTestService();
+        Assert.Throws<InvalidOperationException>(() => svc.SetQuestion(new QuestionDto
+        {
+            QuestionId = Guid.NewGuid(),
+            Type = QuestionType.Chinese,
+            Content = "含错原文",
+            ExpectedContent = "",
+            Mode = ExamMode.ErrorCorrection,
+            Duration = 60,
+            SessionId = Guid.NewGuid()
+        }));
     }
 }

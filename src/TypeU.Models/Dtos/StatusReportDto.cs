@@ -52,8 +52,26 @@ public sealed partial class StatusReportDto
     public int AnomalyCount { get; set; }
 
     /// <summary>
-    /// 时间戳（UTC，由教师端时间同步决定，避免本地改时间作弊）。
+    /// 时间戳（UTC）。
     /// </summary>
     [ProtoMember(8)]
     public DateTime Timestamp { get; set; }
+
+    /// <summary>
+    /// 窗口是否最小化（教师巡视用）。
+    /// </summary>
+    [ProtoMember(9)]
+    public bool IsMinimized { get; set; }
+
+    /// <summary>
+    /// 客户端模式文案（单机/在线练习/考试中等）。
+    /// </summary>
+    [ProtoMember(10)]
+    public string ClientMode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 设备指纹（未登录上报时用于关联连接）。
+    /// </summary>
+    [ProtoMember(11)]
+    public string DeviceFingerprint { get; set; } = string.Empty;
 }

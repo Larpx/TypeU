@@ -50,4 +50,10 @@ public sealed partial class ExamResultDto
     /// </summary>
     [ProtoMember(7)]
     public DateTime SubmittedAt { get; set; }
+
+    /// <summary>
+    /// 第几次测验（1..N）。
+    /// </summary>
+    [ProtoMember(8)]
+    public int AttemptIndex { get; set; } = 1;
 }

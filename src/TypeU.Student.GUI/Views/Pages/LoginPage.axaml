@@ -13,8 +13,8 @@
     </Design.DataContext>
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="32" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto">
-            <TextBlock Grid.Row="0" Text="TypeU 学生端 - 签到登录"
+        <Grid Margin="32" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
+            <TextBlock Grid.Row="0" Text="TypeU 学生端"
                        Classes="title" Margin="0,0,0,24" HorizontalAlignment="Center"/>
 
             <Border Grid.Row="1" Classes="card" Margin="0,0,0,16" Padding="24,20">
@@ -31,35 +31,41 @@
             <Border Grid.Row="2" Classes="card" Margin="0,0,0,16" Padding="24,16">
                 <Grid RowDefinitions="Auto, Auto">
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="自动发现状态：" Classes="caption" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding StatusText}" FontWeight="600" VerticalAlignment="Center"/>
+                        <TextBlock Text="状态：" Classes="caption" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding StatusText}" FontWeight="600" VerticalAlignment="Center" TextWrapping="Wrap"/>
                     </StackPanel>
                     <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#ef4444"
-                               Classes="caption" Margin="0,8,0,0" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                               Classes="caption" Margin="0,8,0,0"
+                               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                 </Grid>
             </Border>
 
-            <Border Grid.Row="3" Classes="card" Margin="0,0,0,16" Padding="24,16"
-                    IsVisible="{Binding ShowManualInput}">
+            <Border Grid.Row="3" Classes="card" Margin="0,0,0,16" Padding="24,16">
                 <Grid RowDefinitions="Auto, Auto">
-                    <TextBlock Grid.Row="0" Text="手动输入教师端 IP（自动发现超时兜底）" Classes="subtitle" Margin="0,0,0,12"/>
+                    <TextBlock Grid.Row="0" Text="教师端地址（保存后 Ping 连接）" Classes="subtitle" Margin="0,0,0,12"/>
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
                         <TextBox Text="{Binding ManualHost, Mode=TwoWay}" PlaceholderText="如 192.168.1.10" Width="200"/>
                         <TextBlock Text=":" VerticalAlignment="Center" Margin="4,0"/>
                         <TextBox Text="{Binding ManualPort, Mode=TwoWay}" Width="80" Margin="0,0,8,0"/>
-                        <Button Content="手动连接" Command="{Binding ManualConnectCommand}"/>
+                        <Button Content="保存并连接" Command="{Binding ManualConnectCommand}"/>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <Button Grid.Row="4" Content="签到登录"
+            <Border Grid.Row="4" Classes="card" Margin="0,0,0,16" Padding="24,16"
+                    IsVisible="{Binding IsOfflineMode}">
+                <TextBlock Text="当前为单机模式：可直接开始本地练习；配置教师 IP 并连接后可等待开考登录。"
+                           TextWrapping="Wrap" Classes="caption"/>
+            </Border>
+
+            <Button Grid.Row="5" Content="{Binding LoginButtonText}"
                     Command="{Binding LoginCommand}"
                     Classes="primary"
                     FontSize="16" Padding="0,14"
                     HorizontalAlignment="Stretch"
                     IsEnabled="{Binding !IsLoggingIn}"/>
 
-            <Button Grid.Row="5" Content="重新自动发现" Command="{Binding StartDiscoveryCommand}"
+            <Button Grid.Row="6" Content="重试连接教师端" Command="{Binding StartDiscoveryCommand}"
                     Classes="link" Margin="0,12,0,0" HorizontalAlignment="Center"/>
         </Grid>
     </ScrollViewer>

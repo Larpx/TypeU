@@ -102,7 +102,7 @@ public sealed class TeacherExamServiceTests : IDisposable
             return Task.CompletedTask;
         };
 
-        await _examSvc.StartAsync(ExamMode.TimedSprint, added.QuestionId, 600);
+        await _examSvc.StartAsync(ExamMode.TimedSprint, added.QuestionId, 600, maxAttempts: 2, allowPracticeAfterSubmit: false);
 
         Assert.NotNull(_examSvc.CurrentSession);
         var sessionId = _examSvc.CurrentSession!.SessionId;
@@ -125,7 +125,7 @@ public sealed class TeacherExamServiceTests : IDisposable
         var qSvc = new QuestionService(_questionRepo);
         var q = qSvc.Add(QuestionType.English, "hello");
 
-        await _examSvc.StartAsync(ExamMode.TimedSprint, q.QuestionId, 300);
+        await _examSvc.StartAsync(ExamMode.TimedSprint, q.QuestionId, 300, maxAttempts: 1, allowPracticeAfterSubmit: true);
         var sessionIdBefore = _examSvc.CurrentSession!.SessionId;
 
         _monitoring.RegisterStudent("S001", "张三", "ip1");
@@ -149,15 +149,17 @@ public sealed class TeacherExamServiceTests : IDisposable
 
         var qSvc = new QuestionService(_questionRepo);
         var q = qSvc.Add(QuestionType.Code, "x();");
-        await _examSvc.StartAsync(ExamMode.FixedLength, q.QuestionId, 300);
+        await _examSvc.StartAsync(ExamMode.FixedLength, q.QuestionId, 300, maxAttempts: 1, allowPracticeAfterSubmit: false);
 
         var sessionId = _examSvc.CurrentSession!.SessionId;
         await _examSvc.StopAsync();
 
-        Assert.Null(_examSvc.CurrentSession);
+        Assert.NotNull(_examSvc.CurrentSession);
+        Assert.Equal(ExamSessionStatus.Ended, _examSvc.CurrentSession!.Status);
         var sessionInDb = _examRepo.GetSessionById(sessionId);
         Assert.NotNull(sessionInDb);
-        Assert.True(sessionInDb!.EndedAt > DateTime.MinValue);
+        Assert.Equal(ExamSessionStatus.Ended, sessionInDb!.Status);
+        Assert.True(sessionInDb.EndedAt > DateTime.MinValue);
     }
 
     /// <summary>

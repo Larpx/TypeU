@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
 using Microsoft.Data.Sqlite;
 
 namespace Larpx.PersonalTools.TypeU.Data;
 
 /// <summary>
-/// SQLite 建表脚本执行器：幂等创建 5 张表。
+/// SQLite 建表与增量迁移。
 /// </summary>
 public sealed class DatabaseInitializer
 {
@@ -20,7 +21,7 @@ public sealed class DatabaseInitializer
     }
 
     /// <summary>
-    /// 执行建表脚本（IF NOT EXISTS，可重复执行）。
+    /// 执行建表与增量迁移（可重复执行）。
     /// </summary>
     public void Initialize()
     {
@@ -31,6 +32,14 @@ public sealed class DatabaseInitializer
         ExecuteScript(conn, tx, SqlCreateExamSessions);
         ExecuteScript(conn, tx, SqlCreateExamRecords);
         ExecuteScript(conn, tx, SqlCreateNonceCache);
+        ExecuteScript(conn, tx, SqlCreateSessionLogins);
+        EnsureColumn(conn, tx, "Questions", "ExpectedContent", "ALTER TABLE Questions ADD COLUMN ExpectedContent TEXT NOT NULL DEFAULT '';");
+        EnsureColumn(conn, tx, "ExamSessions", "MaxAttempts", "ALTER TABLE ExamSessions ADD COLUMN MaxAttempts INTEGER NOT NULL DEFAULT 1;");
+        EnsureColumn(conn, tx, "ExamSessions", "AllowPracticeAfterSubmit", "ALTER TABLE ExamSessions ADD COLUMN AllowPracticeAfterSubmit INTEGER NOT NULL DEFAULT 0;");
+        EnsureColumn(conn, tx, "ExamSessions", "TeacherId", "ALTER TABLE ExamSessions ADD COLUMN TeacherId TEXT NOT NULL DEFAULT '';");
+        EnsureColumn(conn, tx, "ExamSessions", "TeacherName", "ALTER TABLE ExamSessions ADD COLUMN TeacherName TEXT NOT NULL DEFAULT '';");
+        EnsureColumn(conn, tx, "ExamSessions", "Status", "ALTER TABLE ExamSessions ADD COLUMN Status INTEGER NOT NULL DEFAULT 1;");
+        EnsureColumn(conn, tx, "ExamRecords", "AttemptIndex", "ALTER TABLE ExamRecords ADD COLUMN AttemptIndex INTEGER NOT NULL DEFAULT 1;");
         tx.Commit();
     }
 
@@ -40,6 +49,25 @@ public sealed class DatabaseInitializer
         cmd.Transaction = tx;
         cmd.CommandText = sql;
         cmd.ExecuteNonQuery();
+    }
+
+    private static void EnsureColumn(IDbConnection conn, IDbTransaction tx, string table, string column, string alterSql)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var check = conn.CreateCommand();
+        check.Transaction = tx;
+        check.CommandText = $"PRAGMA table_info({table});";
+        using var reader = check.ExecuteReader();
+        while (reader.Read())
+        {
+            names.Add(reader.GetString(1));
+        }
+
+        reader.Close();
+        if (!names.Contains(column))
+        {
+            ExecuteScript(conn, tx, alterSql);
+        }
     }
 
     private const string SqlCreateStudents = """
@@ -58,7 +86,8 @@ public sealed class DatabaseInitializer
             QuestionId TEXT NOT NULL PRIMARY KEY,
             Type INTEGER NOT NULL,
             Content TEXT NOT NULL,
-            CreatedAt TEXT NOT NULL
+            CreatedAt TEXT NOT NULL,
+            ExpectedContent TEXT NOT NULL DEFAULT ''
         );
         """;
 
@@ -69,7 +98,12 @@ public sealed class DatabaseInitializer
             QuestionId TEXT NOT NULL,
             StartedAt TEXT NOT NULL,
             EndedAt TEXT NOT NULL,
-            Duration INTEGER NOT NULL
+            Duration INTEGER NOT NULL,
+            MaxAttempts INTEGER NOT NULL DEFAULT 1,
+            AllowPracticeAfterSubmit INTEGER NOT NULL DEFAULT 0,
+            TeacherId TEXT NOT NULL DEFAULT '',
+            TeacherName TEXT NOT NULL DEFAULT '',
+            Status INTEGER NOT NULL DEFAULT 1
         );
         """;
 
@@ -81,7 +115,8 @@ public sealed class DatabaseInitializer
             Speed REAL NOT NULL,
             Accuracy REAL NOT NULL,
             Anomalies TEXT NOT NULL,
-            SubmittedAt TEXT NOT NULL
+            SubmittedAt TEXT NOT NULL,
+            AttemptIndex INTEGER NOT NULL DEFAULT 1
         );
         CREATE INDEX IF NOT EXISTS IX_ExamRecords_SessionId ON ExamRecords(SessionId);
         CREATE INDEX IF NOT EXISTS IX_ExamRecords_StudentId ON ExamRecords(StudentId);
@@ -93,5 +128,18 @@ public sealed class DatabaseInitializer
             ReceivedAt TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS IX_NonceCache_ReceivedAt ON NonceCache(ReceivedAt);
+        """;
+
+    private const string SqlCreateSessionLogins = """
+        CREATE TABLE IF NOT EXISTS SessionLogins (
+            SessionId TEXT NOT NULL,
+            DeviceFingerprint TEXT NOT NULL,
+            StudentId TEXT NOT NULL,
+            Name TEXT NOT NULL,
+            LoggedInAt TEXT NOT NULL,
+            LogoutAllowed INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (SessionId, DeviceFingerprint)
+        );
+        CREATE INDEX IF NOT EXISTS IX_SessionLogins_StudentId ON SessionLogins(StudentId);
         """;
 }
