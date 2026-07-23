@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <RootNamespace>Larpx.PersonalTools.TypeU.Data</RootNamespace>
-    <Description>TypeU 数据访问：SQLite + Dapper 仓储。</Description>
+    <Description>TypeU 数据访问：SQLite + SqlSugar 仓储（Native AOT 友好）。</Description>
     <AssemblyTitle>TypeU.Data</AssemblyTitle>
   </PropertyGroup>
 
@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <PackageReference Include="SqlSugarCore" Version="5.1.4.216" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using SqlSugar;
 
 namespace Larpx.PersonalTools.TypeU.Data;
 
@@ -22,4 +23,9 @@ public abstract class RepositoryBase
     /// 打开一个新连接（需由调用方 Dispose）。
     /// </summary>
     protected IDbConnection OpenConnection() => _factory.Create();
+
+    /// <summary>
+    /// 创建一个新的 SqlSugar 客户端（需由调用方 Dispose）。
+    /// </summary>
+    protected SqlSugarClient CreateClient() => _factory.CreateClient();
 }

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dapper;
 using Larpx.PersonalTools.TypeU.Models.Entities;
 using Larpx.PersonalTools.TypeU.Models.Enums;
+using SqlSugar;
 
 namespace Larpx.PersonalTools.TypeU.Data.Repositories;
 
@@ -27,8 +27,8 @@ public sealed class QuestionRepository : RepositoryBase
     /// <returns>试题实体；不存在时为 null。</returns>
     public Question? GetById(Guid questionId)
     {
-        using var conn = OpenConnection();
-        var row = conn.QueryFirstOrDefault<QuestionRow>(
+        using var db = CreateClient();
+        var row = db.Ado.SqlQuerySingle<QuestionRow>(
             "SELECT QuestionId, Type, Content, CreatedAt, ExpectedContent FROM Questions WHERE QuestionId = @QuestionId;",
             new { QuestionId = questionId.ToString("D") });
         return row?.ToEntity();
@@ -41,9 +41,24 @@ public sealed class QuestionRepository : RepositoryBase
     public IReadOnlyList<Question> GetAll()
     {
         using var conn = OpenConnection();
-        var rows = conn.Query<QuestionRow>(
-            "SELECT QuestionId, Type, Content, CreatedAt, ExpectedContent FROM Questions ORDER BY CreatedAt DESC;");
-        return rows.Select(r => r.ToEntity()).ToList();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT QuestionId, Type, Content, CreatedAt, ExpectedContent FROM Questions ORDER BY CreatedAt DESC;";
+        using var reader = cmd.ExecuteReader();
+
+        var list = new List<Question>();
+        while (reader.Read())
+        {
+            var row = new QuestionRow
+            {
+                QuestionId = reader.GetString(0),
+                Type = reader.GetInt32(1),
+                Content = reader.GetString(2),
+                CreatedAt = reader.GetString(3),
+                ExpectedContent = reader.IsDBNull(4) ? string.Empty : reader.GetString(4)
+            };
+            list.Add(row.ToEntity());
+        }
+        return list;
     }
 
     /// <summary>
@@ -53,8 +68,8 @@ public sealed class QuestionRepository : RepositoryBase
     /// <returns>匹配类型的试题列表。</returns>
     public IReadOnlyList<Question> GetByType(QuestionType type)
     {
-        using var conn = OpenConnection();
-        var rows = conn.Query<QuestionRow>(
+        using var db = CreateClient();
+        var rows = db.Ado.SqlQuery<QuestionRow>(
             "SELECT QuestionId, Type, Content, CreatedAt, ExpectedContent FROM Questions WHERE Type = @Type ORDER BY CreatedAt DESC;",
             new { Type = (int)type });
         return rows.Select(r => r.ToEntity()).ToList();
@@ -71,8 +86,8 @@ public sealed class QuestionRepository : RepositoryBase
             throw new ArgumentNullException(nameof(question));
         }
 
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             INSERT INTO Questions (QuestionId, Type, Content, CreatedAt, ExpectedContent)
             VALUES (@QuestionId, @Type, @Content, @CreatedAt, @ExpectedContent);
@@ -91,8 +106,8 @@ public sealed class QuestionRepository : RepositoryBase
             throw new ArgumentNullException(nameof(question));
         }
 
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             UPDATE Questions
             SET Type = @Type, Content = @Content, ExpectedContent = @ExpectedContent
@@ -107,8 +122,8 @@ public sealed class QuestionRepository : RepositoryBase
     /// <param name="questionId">试题 ID。</param>
     public void Delete(Guid questionId)
     {
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             "DELETE FROM Questions WHERE QuestionId = @QuestionId;",
             new { QuestionId = questionId.ToString("D") });
     }
@@ -121,13 +136,13 @@ public sealed class QuestionRepository : RepositoryBase
         public string CreatedAt { get; set; } = string.Empty;
         public string ExpectedContent { get; set; } = string.Empty;
 
-        public static QuestionRow FromEntity(Question e) => new()
+        public static Dictionary<string, object> FromEntity(Question e) => new()
         {
-            QuestionId = e.QuestionId.ToString("D"),
-            Type = (int)e.Type,
-            Content = e.Content,
-            CreatedAt = e.CreatedAt.ToString("O"),
-            ExpectedContent = e.ExpectedContent ?? string.Empty
+            ["QuestionId"] = e.QuestionId.ToString("D"),
+            ["Type"] = (int)e.Type,
+            ["Content"] = e.Content,
+            ["CreatedAt"] = e.CreatedAt.ToString("O"),
+            ["ExpectedContent"] = e.ExpectedContent ?? string.Empty
         };
 
         public Question ToEntity() => new()

@@ -37,6 +37,9 @@ public partial class App : Application
     /// </summary>
     public override void OnFrameworkInitializationCompleted()
     {
+        // 启用 SqlSugar Native AOT 模式（程序启动执行一次），避免 Reflection.Emit 动态代码生成。
+        SqlSugar.StaticConfig.EnableAot = true;
+
         const int UdpListenPort = 5800;
 
         _services = AppBootstrapper.Build(services =>

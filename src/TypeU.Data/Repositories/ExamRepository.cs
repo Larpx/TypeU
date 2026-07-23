@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dapper;
 using Larpx.PersonalTools.TypeU.Models.Entities;
 using Larpx.PersonalTools.TypeU.Models.Enums;
+using SqlSugar;
 
 namespace Larpx.PersonalTools.TypeU.Data.Repositories;
 
@@ -29,8 +29,8 @@ public sealed class ExamRepository : RepositoryBase
             throw new ArgumentNullException(nameof(session));
         }
 
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             INSERT INTO ExamSessions (SessionId, Mode, QuestionId, StartedAt, EndedAt, Duration,
                 MaxAttempts, AllowPracticeAfterSubmit, TeacherId, TeacherName, Status)
@@ -45,8 +45,8 @@ public sealed class ExamRepository : RepositoryBase
     /// </summary>
     public void UpdateSession(ExamSession session)
     {
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             UPDATE ExamSessions
             SET Mode = @Mode,
@@ -69,8 +69,8 @@ public sealed class ExamRepository : RepositoryBase
     /// </summary>
     public ExamSession? GetSessionById(Guid sessionId)
     {
-        using var conn = OpenConnection();
-        var row = conn.QueryFirstOrDefault<SessionRow>(
+        using var db = CreateClient();
+        var row = db.Ado.SqlQuerySingle<SessionRow>(
             """
             SELECT SessionId, Mode, QuestionId, StartedAt, EndedAt, Duration,
                    MaxAttempts, AllowPracticeAfterSubmit, TeacherId, TeacherName, Status
@@ -85,8 +85,8 @@ public sealed class ExamRepository : RepositoryBase
     /// </summary>
     public ExamSession? GetRunningSession()
     {
-        using var conn = OpenConnection();
-        var row = conn.QueryFirstOrDefault<SessionRow>(
+        using var db = CreateClient();
+        var row = db.Ado.SqlQuerySingle<SessionRow>(
             """
             SELECT SessionId, Mode, QuestionId, StartedAt, EndedAt, Duration,
                    MaxAttempts, AllowPracticeAfterSubmit, TeacherId, TeacherName, Status
@@ -101,8 +101,8 @@ public sealed class ExamRepository : RepositoryBase
     /// </summary>
     public IReadOnlyList<ExamSession> GetAllSessions()
     {
-        using var conn = OpenConnection();
-        var rows = conn.Query<SessionRow>(
+        using var db = CreateClient();
+        var rows = db.Ado.SqlQuery<SessionRow>(
             """
             SELECT SessionId, Mode, QuestionId, StartedAt, EndedAt, Duration,
                    MaxAttempts, AllowPracticeAfterSubmit, TeacherId, TeacherName, Status
@@ -121,8 +121,8 @@ public sealed class ExamRepository : RepositoryBase
             throw new ArgumentNullException(nameof(record));
         }
 
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             INSERT INTO ExamRecords (RecordId, SessionId, StudentId, Speed, Accuracy, Anomalies, SubmittedAt, AttemptIndex)
             VALUES (@RecordId, @SessionId, @StudentId, @Speed, @Accuracy, @Anomalies, @SubmittedAt, @AttemptIndex);
@@ -135,8 +135,8 @@ public sealed class ExamRepository : RepositoryBase
     /// </summary>
     public IReadOnlyList<ExamRecord> GetRecordsBySession(Guid sessionId)
     {
-        using var conn = OpenConnection();
-        var rows = conn.Query<RecordRow>(
+        using var db = CreateClient();
+        var rows = db.Ado.SqlQuery<RecordRow>(
             """
             SELECT RecordId, SessionId, StudentId, Speed, Accuracy, Anomalies, SubmittedAt, AttemptIndex
             FROM ExamRecords WHERE SessionId = @Id ORDER BY StudentId, AttemptIndex;
@@ -150,8 +150,8 @@ public sealed class ExamRepository : RepositoryBase
     /// </summary>
     public int CountAttempts(Guid sessionId, string studentId)
     {
-        using var conn = OpenConnection();
-        return conn.ExecuteScalar<int>(
+        using var db = CreateClient();
+        return db.Ado.GetInt(
             "SELECT COUNT(1) FROM ExamRecords WHERE SessionId = @SessionId AND StudentId = @StudentId;",
             new { SessionId = sessionId.ToString("D"), StudentId = studentId });
     }
@@ -161,8 +161,8 @@ public sealed class ExamRepository : RepositoryBase
     /// </summary>
     public IReadOnlyList<ExamRecord> GetRecordsByStudent(string studentId)
     {
-        using var conn = OpenConnection();
-        var rows = conn.Query<RecordRow>(
+        using var db = CreateClient();
+        var rows = db.Ado.SqlQuery<RecordRow>(
             """
             SELECT RecordId, SessionId, StudentId, Speed, Accuracy, Anomalies, SubmittedAt, AttemptIndex
             FROM ExamRecords WHERE StudentId = @Id ORDER BY SubmittedAt DESC;
@@ -185,19 +185,19 @@ public sealed class ExamRepository : RepositoryBase
         public string TeacherName { get; set; } = string.Empty;
         public int Status { get; set; } = 1;
 
-        public static SessionRow FromEntity(ExamSession e) => new()
+        public static Dictionary<string, object> FromEntity(ExamSession e) => new()
         {
-            SessionId = e.SessionId.ToString("D"),
-            Mode = (int)e.Mode,
-            QuestionId = e.QuestionId.ToString("D"),
-            StartedAt = e.StartedAt.ToString("O"),
-            EndedAt = e.EndedAt.ToString("O"),
-            Duration = e.Duration,
-            MaxAttempts = e.MaxAttempts,
-            AllowPracticeAfterSubmit = e.AllowPracticeAfterSubmit ? 1 : 0,
-            TeacherId = e.TeacherId ?? string.Empty,
-            TeacherName = e.TeacherName ?? string.Empty,
-            Status = (int)e.Status
+            ["SessionId"] = e.SessionId.ToString("D"),
+            ["Mode"] = (int)e.Mode,
+            ["QuestionId"] = e.QuestionId.ToString("D"),
+            ["StartedAt"] = e.StartedAt.ToString("O"),
+            ["EndedAt"] = e.EndedAt.ToString("O"),
+            ["Duration"] = e.Duration,
+            ["MaxAttempts"] = e.MaxAttempts,
+            ["AllowPracticeAfterSubmit"] = e.AllowPracticeAfterSubmit ? 1 : 0,
+            ["TeacherId"] = e.TeacherId ?? string.Empty,
+            ["TeacherName"] = e.TeacherName ?? string.Empty,
+            ["Status"] = (int)e.Status
         };
 
         public ExamSession ToEntity() => new()
@@ -227,16 +227,16 @@ public sealed class ExamRepository : RepositoryBase
         public string SubmittedAt { get; set; } = string.Empty;
         public int AttemptIndex { get; set; } = 1;
 
-        public static RecordRow FromEntity(ExamRecord e) => new()
+        public static Dictionary<string, object> FromEntity(ExamRecord e) => new()
         {
-            RecordId = e.RecordId.ToString("D"),
-            SessionId = e.SessionId.ToString("D"),
-            StudentId = e.StudentId,
-            Speed = e.Speed,
-            Accuracy = e.Accuracy,
-            Anomalies = e.Anomalies,
-            SubmittedAt = e.SubmittedAt.ToString("O"),
-            AttemptIndex = e.AttemptIndex <= 0 ? 1 : e.AttemptIndex
+            ["RecordId"] = e.RecordId.ToString("D"),
+            ["SessionId"] = e.SessionId.ToString("D"),
+            ["StudentId"] = e.StudentId,
+            ["Speed"] = e.Speed,
+            ["Accuracy"] = e.Accuracy,
+            ["Anomalies"] = e.Anomalies,
+            ["SubmittedAt"] = e.SubmittedAt.ToString("O"),
+            ["AttemptIndex"] = e.AttemptIndex <= 0 ? 1 : e.AttemptIndex
         };
 
         public ExamRecord ToEntity() => new()

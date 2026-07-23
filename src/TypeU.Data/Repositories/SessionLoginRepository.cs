@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dapper;
 using Larpx.PersonalTools.TypeU.Models.Entities;
+using SqlSugar;
 
 namespace Larpx.PersonalTools.TypeU.Data.Repositories;
 
@@ -28,8 +28,8 @@ public sealed class SessionLoginRepository : RepositoryBase
             throw new ArgumentNullException(nameof(login));
         }
 
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             INSERT INTO SessionLogins (SessionId, DeviceFingerprint, StudentId, Name, LoggedInAt, LogoutAllowed)
             VALUES (@SessionId, @DeviceFingerprint, @StudentId, @Name, @LoggedInAt, @LogoutAllowed)
@@ -47,8 +47,8 @@ public sealed class SessionLoginRepository : RepositoryBase
     /// </summary>
     public SessionLogin? GetByDevice(Guid sessionId, string deviceFingerprint)
     {
-        using var conn = OpenConnection();
-        var row = conn.QueryFirstOrDefault<Row>(
+        using var db = CreateClient();
+        var row = db.Ado.SqlQuerySingle<Row>(
             """
             SELECT SessionId, DeviceFingerprint, StudentId, Name, LoggedInAt, LogoutAllowed
             FROM SessionLogins WHERE SessionId = @SessionId AND DeviceFingerprint = @Fp;
@@ -62,8 +62,8 @@ public sealed class SessionLoginRepository : RepositoryBase
     /// </summary>
     public IReadOnlyList<SessionLogin> GetBySession(Guid sessionId)
     {
-        using var conn = OpenConnection();
-        var rows = conn.Query<Row>(
+        using var db = CreateClient();
+        var rows = db.Ado.SqlQuery<Row>(
             """
             SELECT SessionId, DeviceFingerprint, StudentId, Name, LoggedInAt, LogoutAllowed
             FROM SessionLogins WHERE SessionId = @SessionId ORDER BY LoggedInAt;
@@ -77,8 +77,8 @@ public sealed class SessionLoginRepository : RepositoryBase
     /// </summary>
     public void SetLogoutAllowed(Guid sessionId, string studentId, bool allowed)
     {
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             UPDATE SessionLogins SET LogoutAllowed = @Allowed
             WHERE SessionId = @SessionId AND StudentId = @StudentId;
@@ -96,8 +96,8 @@ public sealed class SessionLoginRepository : RepositoryBase
     /// </summary>
     public void Delete(Guid sessionId, string deviceFingerprint)
     {
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             "DELETE FROM SessionLogins WHERE SessionId = @SessionId AND DeviceFingerprint = @Fp;",
             new { SessionId = sessionId.ToString("D"), Fp = deviceFingerprint });
     }
@@ -111,14 +111,14 @@ public sealed class SessionLoginRepository : RepositoryBase
         public string LoggedInAt { get; set; } = string.Empty;
         public int LogoutAllowed { get; set; }
 
-        public static Row FromEntity(SessionLogin e) => new()
+        public static Dictionary<string, object> FromEntity(SessionLogin e) => new()
         {
-            SessionId = e.SessionId.ToString("D"),
-            DeviceFingerprint = e.DeviceFingerprint,
-            StudentId = e.StudentId,
-            Name = e.Name,
-            LoggedInAt = e.LoggedInAt.ToString("O"),
-            LogoutAllowed = e.LogoutAllowed ? 1 : 0
+            ["SessionId"] = e.SessionId.ToString("D"),
+            ["DeviceFingerprint"] = e.DeviceFingerprint,
+            ["StudentId"] = e.StudentId,
+            ["Name"] = e.Name,
+            ["LoggedInAt"] = e.LoggedInAt.ToString("O"),
+            ["LogoutAllowed"] = e.LogoutAllowed ? 1 : 0
         };
 
         public SessionLogin ToEntity() => new()

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dapper;
 using Larpx.PersonalTools.TypeU.Models.Entities;
+using SqlSugar;
 
 namespace Larpx.PersonalTools.TypeU.Data.Repositories;
 
@@ -24,18 +24,13 @@ public sealed class NonceRepository : RepositoryBase
     /// <returns>true=新增成功；false=已存在。</returns>
     public bool TryAdd(string nonce, DateTime receivedAt)
     {
-        using var conn = OpenConnection();
-        try
-        {
-            conn.Execute(
-                "INSERT INTO NonceCache (Nonce, ReceivedAt) VALUES (@Nonce, @ReceivedAt);",
-                new { Nonce = nonce, ReceivedAt = receivedAt.ToString("O") });
-            return true;
-        }
-        catch (Microsoft.Data.Sqlite.SqliteException)
-        {
-            return false;
-        }
+        using var db = CreateClient();
+        // 使用 INSERT OR IGNORE 让 SQLite 自行处理主键冲突，通过受影响行数判断结果。
+        // 切换 SqlSugar 后底层异常会被包装，不再依赖 catch SqliteException。
+        var affected = db.Ado.ExecuteCommand(
+            "INSERT OR IGNORE INTO NonceCache (Nonce, ReceivedAt) VALUES (@Nonce, @ReceivedAt);",
+            new { Nonce = nonce, ReceivedAt = receivedAt.ToString("O") });
+        return affected > 0;
     }
 
     /// <summary>
@@ -43,8 +38,8 @@ public sealed class NonceRepository : RepositoryBase
     /// </summary>
     public int PurgeOlderThan(DateTime cutoffUtc)
     {
-        using var conn = OpenConnection();
-        return conn.Execute(
+        using var db = CreateClient();
+        return db.Ado.ExecuteCommand(
             "DELETE FROM NonceCache WHERE ReceivedAt < @Cutoff;",
             new { Cutoff = cutoffUtc.ToString("O") });
     }
@@ -54,8 +49,8 @@ public sealed class NonceRepository : RepositoryBase
     /// </summary>
     public IReadOnlyList<NonceCache> GetAll()
     {
-        using var conn = OpenConnection();
-        var rows = conn.Query<NonceRow>("SELECT Nonce, ReceivedAt FROM NonceCache;");
+        using var db = CreateClient();
+        var rows = db.Ado.SqlQuery<NonceRow>("SELECT Nonce, ReceivedAt FROM NonceCache;");
         return rows.Select(r => r.ToEntity()).ToList();
     }
 

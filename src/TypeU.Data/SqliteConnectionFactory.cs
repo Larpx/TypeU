@@ -1,11 +1,12 @@
 using System;
 using System.Data;
 using Microsoft.Data.Sqlite;
+using SqlSugar;
 
 namespace Larpx.PersonalTools.TypeU.Data;
 
 /// <summary>
-/// SQLite 连接工厂：基于连接字符串创建 <see cref="SqliteConnection"/>。
+/// SQLite 连接工厂：基于连接字符串创建 <see cref="SqliteConnection"/> 或 SqlSugar 客户端。
 /// </summary>
 public sealed class SqliteConnectionFactory
 {
@@ -32,5 +33,20 @@ public sealed class SqliteConnectionFactory
         var conn = new SqliteConnection(_connectionString);
         conn.Open();
         return conn;
+    }
+
+    /// <summary>
+    /// 创建一个新的 SqlSugar 客户端（需由调用方 Dispose）。
+    /// Native AOT 场景下每次 new，不用单例；IsAutoCloseConnection=true 自动管理连接。
+    /// </summary>
+    public SqlSugarClient CreateClient()
+    {
+        return new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = _connectionString,
+            DbType = SqlSugar.DbType.Sqlite,
+            IsAutoCloseConnection = true,
+            InitKeyType = InitKeyType.Attribute
+        });
     }
 }

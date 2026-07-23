@@ -1,16 +1,15 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Larpx.PersonalTools.TypeU.Services.Student;
 
 /// <summary>
 /// 学生端本地配置（教师 IP/端口）。
 /// </summary>
-public sealed class StudentClientConfig
+public sealed partial class StudentClientConfig
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
     /// <summary>教师端 IP。</summary>
     public string TeacherHost { get; set; } = string.Empty;
 
@@ -37,7 +36,7 @@ public sealed class StudentClientConfig
             }
 
             var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<StudentClientConfig>(json) ?? new StudentClientConfig();
+            return JsonSerializer.Deserialize(json, ConfigJsonContext.Default.StudentClientConfig) ?? new StudentClientConfig();
         }
         catch
         {
@@ -51,6 +50,15 @@ public sealed class StudentClientConfig
     public void Save(string? path = null)
     {
         path ??= DefaultPath;
-        File.WriteAllText(path, JsonSerializer.Serialize(this, JsonOptions));
+        File.WriteAllText(path, JsonSerializer.Serialize(this, ConfigJsonContext.Default.StudentClientConfig));
+    }
+
+    /// <summary>
+    /// Native AOT 友好的 JSON 序列化上下文（源生成，避免反射与动态代码生成）。
+    /// </summary>
+    [JsonSourceGenerationOptions(WriteIndented = true)]
+    [JsonSerializable(typeof(StudentClientConfig))]
+    internal sealed partial class ConfigJsonContext : JsonSerializerContext
+    {
     }
 }

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dapper;
 using Larpx.PersonalTools.TypeU.Models.Entities;
 using Larpx.PersonalTools.TypeU.Models.Enums;
+using SqlSugar;
 
 namespace Larpx.PersonalTools.TypeU.Data.Repositories;
 
@@ -24,8 +24,8 @@ public sealed class StudentRepository : RepositoryBase
     /// </summary>
     public Student? GetById(string studentId)
     {
-        using var conn = OpenConnection();
-        var row = conn.QueryFirstOrDefault<StudentRow>(
+        using var db = CreateClient();
+        var row = db.Ado.SqlQuerySingle<StudentRow>(
             "SELECT StudentId, Name, DeviceFingerprint, BoundAt, ExpiresAt, Status FROM Students WHERE StudentId = @StudentId;",
             new { StudentId = studentId });
         return row?.ToEntity();
@@ -36,8 +36,8 @@ public sealed class StudentRepository : RepositoryBase
     /// </summary>
     public IReadOnlyList<Student> GetAll()
     {
-        using var conn = OpenConnection();
-        var rows = conn.Query<StudentRow>(
+        using var db = CreateClient();
+        var rows = db.Ado.SqlQuery<StudentRow>(
             "SELECT StudentId, Name, DeviceFingerprint, BoundAt, ExpiresAt, Status FROM Students ORDER BY StudentId;");
         return rows.Select(r => r.ToEntity()).ToList();
     }
@@ -52,8 +52,8 @@ public sealed class StudentRepository : RepositoryBase
             throw new ArgumentNullException(nameof(student));
         }
 
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             INSERT INTO Students (StudentId, Name, DeviceFingerprint, BoundAt, ExpiresAt, Status)
             VALUES (@StudentId, @Name, @DeviceFingerprint, @BoundAt, @ExpiresAt, @Status);
@@ -71,8 +71,8 @@ public sealed class StudentRepository : RepositoryBase
             throw new ArgumentNullException(nameof(student));
         }
 
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             UPDATE Students
             SET Name = @Name,
@@ -90,8 +90,8 @@ public sealed class StudentRepository : RepositoryBase
     /// </summary>
     public void UpdateStatus(string studentId, StudentStatus status)
     {
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             "UPDATE Students SET Status = @Status WHERE StudentId = @StudentId;",
             new { StudentId = studentId, Status = (int)status });
     }
@@ -101,8 +101,8 @@ public sealed class StudentRepository : RepositoryBase
     /// </summary>
     public void Delete(string studentId)
     {
-        using var conn = OpenConnection();
-        conn.Execute("DELETE FROM Students WHERE StudentId = @StudentId;", new { StudentId = studentId });
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand("DELETE FROM Students WHERE StudentId = @StudentId;", new { StudentId = studentId });
     }
 
     /// <summary>
@@ -111,8 +111,8 @@ public sealed class StudentRepository : RepositoryBase
     /// </summary>
     public string? GetActiveBoundFingerprint(string studentId, DateTime nowUtc)
     {
-        using var conn = OpenConnection();
-        var row = conn.QueryFirstOrDefault<StudentRow>(
+        using var db = CreateClient();
+        var row = db.Ado.SqlQuerySingle<StudentRow>(
             "SELECT StudentId, Name, DeviceFingerprint, BoundAt, ExpiresAt, Status FROM Students WHERE StudentId = @StudentId;",
             new { StudentId = studentId });
 
@@ -135,8 +135,8 @@ public sealed class StudentRepository : RepositoryBase
     /// </summary>
     public void Unbind(string studentId)
     {
-        using var conn = OpenConnection();
-        conn.Execute(
+        using var db = CreateClient();
+        db.Ado.ExecuteCommand(
             """
             UPDATE Students
             SET DeviceFingerprint = '',
@@ -156,14 +156,14 @@ public sealed class StudentRepository : RepositoryBase
         public string ExpiresAt { get; set; } = string.Empty;
         public int Status { get; set; }
 
-        public static StudentRow FromEntity(Student e) => new()
+        public static Dictionary<string, object> FromEntity(Student e) => new()
         {
-            StudentId = e.StudentId,
-            Name = e.Name,
-            DeviceFingerprint = e.DeviceFingerprint,
-            BoundAt = e.BoundAt.ToString("O"),
-            ExpiresAt = e.ExpiresAt.ToString("O"),
-            Status = (int)e.Status
+            ["StudentId"] = e.StudentId,
+            ["Name"] = e.Name,
+            ["DeviceFingerprint"] = e.DeviceFingerprint,
+            ["BoundAt"] = e.BoundAt.ToString("O"),
+            ["ExpiresAt"] = e.ExpiresAt.ToString("O"),
+            ["Status"] = (int)e.Status
         };
 
         public Student ToEntity() => new()
