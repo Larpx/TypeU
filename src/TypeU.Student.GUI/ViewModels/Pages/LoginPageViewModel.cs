@@ -121,7 +121,7 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
 
         NetworkMode = ClientNetworkMode.Connecting;
         StatusText = "正在 Ping 教师端...";
-        if (!StudentConnectionService.PingHost(ManualHost))
+        if (!await StudentConnectionService.PingHostAsync(ManualHost).ConfigureAwait(true))
         {
             EnterOffline("Ping 失败，保持单机模式。可检查 IP 后重试。");
             return;

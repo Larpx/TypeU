@@ -55,6 +55,23 @@ public sealed class StudentConnectionService : IDisposable
     }
 
     /// <summary>
+    /// Ping 主机是否可达（异步，避免阻塞 UI 线程）。
+    /// </summary>
+    public static async Task<bool> PingHostAsync(string host, int timeoutMs = 1000)
+    {
+        try
+        {
+            using var ping = new Ping();
+            var reply = await ping.SendPingAsync(host, timeoutMs).ConfigureAwait(false);
+            return reply?.Status == IPStatus.Success;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 连接并发送 Hello，等待 HelloAck。
     /// </summary>
     public async Task<HelloAckDto?> ConnectAndHelloAsync(string host, int port, TimeSpan? timeout = null)
