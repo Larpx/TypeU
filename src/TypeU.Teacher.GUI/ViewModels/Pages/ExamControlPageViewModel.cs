@@ -20,7 +20,7 @@ public sealed partial class ExamControlPageViewModel : ViewModelBase, IDisposabl
     private readonly ILogger<ExamControlPageViewModel>? _logger;
 
     /// <summary>设计时构造。</summary>
-    public ExamControlPageViewModel() : this(null, null, null, null)
+    public ExamControlPageViewModel() : this(null, null, null)
     {
     }
 
@@ -28,7 +28,6 @@ public sealed partial class ExamControlPageViewModel : ViewModelBase, IDisposabl
     public ExamControlPageViewModel(
         TeacherExamService? examService,
         QuestionService? questionService,
-        MonitoringService? monitoring,
         ILogger<ExamControlPageViewModel>? logger = null)
     {
         _examService = examService;

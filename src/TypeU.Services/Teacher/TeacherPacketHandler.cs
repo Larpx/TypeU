@@ -281,9 +281,9 @@ public sealed class TeacherPacketHandler : IDisposable
             return;
         }
 
-        var key = !string.IsNullOrEmpty(dto.StudentId) ? clientId : clientId;
+        // MonitoringService 按连接标识追踪学生进度；学号在 dto 内单独传递，不作为去重键。
         _monitoring.UpdateProgress(
-            key,
+            clientId,
             dto.Speed,
             dto.Accuracy,
             dto.Progress,
