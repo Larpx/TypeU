@@ -11,9 +11,9 @@
     <!-- 源生成器成员（CommunityToolkit.Mvvm 等）可能无 XML；公共手写 API 已补齐注释。 -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
-    <!-- .NET 10 最低 Windows：10 1809（10.0.17763）；不支持 Windows 7/8/8.1。 -->
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::IsOSPlatform('Windows'))">10.0.17763.0</SupportedOSPlatformVersion>
-    <TargetPlatformMinVersion Condition="$([MSBuild]::IsOSPlatform('Windows'))">10.0.17763.0</TargetPlatformMinVersion>
+    <!-- .NET 10 官方最低支持 Windows 10 1607（10.0.14393）；不支持 Windows 7/8/8.1。 -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::IsOSPlatform('Windows'))">10.0.14393.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::IsOSPlatform('Windows'))">10.0.14393.0</TargetPlatformMinVersion>
 
     <!-- 程序集 / 产品元数据（各项目可覆盖 Description）。 -->
     <Authors>Larpx</Authors>

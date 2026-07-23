@@ -11,7 +11,7 @@
            and is designed to work with. Uncomment the appropriate elements
            and Windows will automatically select the most compatible environment. -->
 
-      <!-- Windows 10 / 11（.NET 10 最低 1809；不声明 Win7/8 GUID） -->
+      <!-- Windows 10 / 11（.NET 10 官方最低 1607；不声明 Win7/8 GUID） -->
       <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
     </application>
   </compatibility>
