@@ -7,10 +7,12 @@ using Larpx.PersonalTools.TypeU.Data;
 using Larpx.PersonalTools.TypeU.Data.Repositories;
 using Larpx.PersonalTools.TypeU.Models.Entities;
 using Larpx.PersonalTools.TypeU.Models.Enums;
+using Larpx.PersonalTools.TypeU.Network.Messages;
 using Larpx.PersonalTools.TypeU.Network.Protocol;
 using Larpx.PersonalTools.TypeU.Network.Security;
 using Larpx.PersonalTools.TypeU.Network.Tcp;
 using Larpx.PersonalTools.TypeU.Services.Teacher;
+using ProtoBuf;
 using Xunit;
 
 namespace Larpx.PersonalTools.TypeU.Tests.Services.Teacher;
@@ -31,6 +33,7 @@ public sealed class TeacherExamServiceTests : IDisposable
     private readonly QuestionRepository _questionRepo;
     private readonly MonitoringService _monitoring;
     private readonly TeacherExamService _examSvc;
+    private readonly TimeSyncService _timeSync;
 
     public TeacherExamServiceTests()
     {
@@ -47,12 +50,14 @@ public sealed class TeacherExamServiceTests : IDisposable
         _examRepo = new ExamRepository(_factory);
         _questionRepo = new QuestionRepository(_factory);
         _monitoring = new MonitoringService();
-        _examSvc = new TeacherExamService(_server, _examRepo, _questionRepo, _monitoring, new TimeSyncService(_server));
+        _timeSync = new TimeSyncService(_server, null, TimeSpan.FromMilliseconds(50));
+        _examSvc = new TeacherExamService(_server, _examRepo, _questionRepo, _monitoring, _timeSync);
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
+        _timeSync.Stop();
         _client.Dispose();
         _server.Dispose();
         try { File.Delete(_dbPath); }
@@ -172,5 +177,80 @@ public sealed class TeacherExamServiceTests : IDisposable
         await ConnectClientAndServerAsync(port);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => _examSvc.RestartAsync());
+    }
+
+    /// <summary>
+    /// StartAsync 后应联动 TimeSyncService，客户端收到考试进行中的 TimeSyncMessage。
+    /// </summary>
+    [Fact]
+    public async Task StartAsync_NotifiesTimeSync_BroadcastsRunningState()
+    {
+        var port = GetFreePort();
+        await ConnectClientAndServerAsync(port);
+        _timeSync.Start();
+
+        var qSvc = new QuestionService(_questionRepo);
+        var added = qSvc.Add(QuestionType.Chinese, "测试内容");
+
+        TimeSyncMessage? syncMsg = null;
+        var received = new TaskCompletionSource<bool>();
+        _client.PacketReceived += (type, payload) =>
+        {
+            if (type == MessageType.TimeSync)
+            {
+                using var ms = new MemoryStream(payload);
+                syncMsg = Serializer.Deserialize<TimeSyncMessage>(ms);
+                received.TrySetResult(true);
+            }
+            return Task.CompletedTask;
+        };
+
+        await _examSvc.StartAsync(ExamMode.TimedSprint, added.QuestionId, 600, maxAttempts: 1, allowPracticeAfterSubmit: false);
+
+        await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(3)));
+        Assert.NotNull(syncMsg);
+        Assert.Equal(1, syncMsg!.ExamState);
+        Assert.True(syncMsg.RemainingSeconds > 0);
+        Assert.Equal(_examSvc.CurrentSession!.SessionId, syncMsg.SessionId);
+    }
+
+    /// <summary>
+    /// StopAsync 后应联动 TimeSyncService，客户端收到考试结束的 TimeSyncMessage。
+    /// </summary>
+    [Fact]
+    public async Task StopAsync_NotifiesTimeSync_BroadcastsStoppedState()
+    {
+        var port = GetFreePort();
+        await ConnectClientAndServerAsync(port);
+        _timeSync.Start();
+
+        var qSvc = new QuestionService(_questionRepo);
+        var added = qSvc.Add(QuestionType.Chinese, "测试内容");
+        await _examSvc.StartAsync(ExamMode.TimedSprint, added.QuestionId, 600, maxAttempts: 1, allowPracticeAfterSubmit: false);
+
+        TimeSyncMessage? stoppedMsg = null;
+        var received = new TaskCompletionSource<bool>();
+        _client.PacketReceived += (type, payload) =>
+        {
+            if (type == MessageType.TimeSync)
+            {
+                using var ms = new MemoryStream(payload);
+                var msg = Serializer.Deserialize<TimeSyncMessage>(ms);
+                if (msg.ExamState == 3)
+                {
+                    stoppedMsg = msg;
+                    received.TrySetResult(true);
+                }
+            }
+            return Task.CompletedTask;
+        };
+
+        await _examSvc.StopAsync();
+
+        await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(3)));
+        Assert.True(received.Task.IsCompleted, "未收到考试结束的 TimeSyncMessage");
+        Assert.NotNull(stoppedMsg);
+        Assert.Equal(3, stoppedMsg!.ExamState);
+        Assert.Equal(0, stoppedMsg.RemainingSeconds);
     }
 }
