@@ -54,7 +54,7 @@ public sealed class EndToEndTests : IDisposable
         _questionRepo = new QuestionRepository(_factory);
         _studentRepo = new StudentRepository(_factory);
         _monitoring = new MonitoringService();
-        _examSvc = new TeacherExamService(_server, _examRepo, _questionRepo, _monitoring);
+        _examSvc = new TeacherExamService(_server, _examRepo, _questionRepo, _monitoring, new TimeSyncService(_server));
         _typingTest = new TypingTestService();
         _clientTimeSync = new ClientTimeSyncService();
     }

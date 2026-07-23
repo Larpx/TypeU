@@ -47,7 +47,7 @@ public sealed class TeacherExamServiceTests : IDisposable
         _examRepo = new ExamRepository(_factory);
         _questionRepo = new QuestionRepository(_factory);
         _monitoring = new MonitoringService();
-        _examSvc = new TeacherExamService(_server, _examRepo, _questionRepo, _monitoring);
+        _examSvc = new TeacherExamService(_server, _examRepo, _questionRepo, _monitoring, new TimeSyncService(_server));
     }
 
     /// <inheritdoc/>

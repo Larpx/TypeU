@@ -23,6 +23,7 @@ public sealed class TeacherExamService
     private readonly ExamRepository _examRepository;
     private readonly QuestionRepository _questionRepository;
     private readonly MonitoringService _monitoring;
+    private readonly TimeSyncService _timeSync;
     private readonly ILogger<TeacherExamService>? _logger;
     private ExamSession? _currentSession;
 
@@ -44,12 +45,14 @@ public sealed class TeacherExamService
         ExamRepository examRepository,
         QuestionRepository questionRepository,
         MonitoringService monitoring,
+        TimeSyncService timeSync,
         ILogger<TeacherExamService>? logger = null)
     {
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _examRepository = examRepository ?? throw new ArgumentNullException(nameof(examRepository));
         _questionRepository = questionRepository ?? throw new ArgumentNullException(nameof(questionRepository));
         _monitoring = monitoring ?? throw new ArgumentNullException(nameof(monitoring));
+        _timeSync = timeSync ?? throw new ArgumentNullException(nameof(timeSync));
         _logger = logger;
     }
 
@@ -175,6 +178,9 @@ public sealed class TeacherExamService
 
         _logger?.LogInformation("开始考试：{SessionId} 模式 {Mode} 次数 {Attempts}",
             _currentSession.SessionId, mode, maxAttempts);
+
+        // 联动时间同步服务：广播考试进行中与剩余时长，供学生端倒计时基准使用。
+        _timeSync.NotifyExamStarted(_currentSession.SessionId, durationSeconds);
     }
 
     /// <summary>
@@ -188,6 +194,7 @@ public sealed class TeacherExamService
         }
 
         await SendControlAsync(ExamControlAction.Pause).ConfigureAwait(false);
+        _timeSync.NotifyExamPaused();
     }
 
     /// <summary>
@@ -201,6 +208,7 @@ public sealed class TeacherExamService
         }
 
         await SendControlAsync(ExamControlAction.Resume).ConfigureAwait(false);
+        _timeSync.NotifyExamResumed();
     }
 
     /// <summary>
@@ -233,6 +241,7 @@ public sealed class TeacherExamService
 
         _logger?.LogInformation("考试已结束：{SessionId}", _currentSession.SessionId);
         // 保留会话引用以便允许登出 / 成绩查询；下次 Start 前会覆盖。
+        _timeSync.NotifyExamStopped();
     }
 
     /// <summary>

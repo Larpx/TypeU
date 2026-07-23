@@ -89,6 +89,14 @@ public sealed class TimeSyncService
     }
 
     /// <summary>
+    /// 通知服务：考试恢复（保持当前剩余时长，仅切回进行中）。
+    /// </summary>
+    public void NotifyExamResumed()
+    {
+        _examState = 1;
+    }
+
+    /// <summary>
     /// 通知服务：考试结束。
     /// </summary>
     public void NotifyExamStopped()
