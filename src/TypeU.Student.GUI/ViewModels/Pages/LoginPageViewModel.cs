@@ -88,8 +88,8 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
     public string LoginButtonText =>
         IsOfflineMode ? "开始单机练习" : (CanLogin ? "考试登录" : "等待开考（可联网练习）");
 
-    /// <summary>登录成功（学号, 是否单机）。</summary>
-    public event Action<string, bool>? LoginSucceeded;
+    /// <summary>登录成功（学号, 进入模式）。</summary>
+    public event Action<string, PracticeMode>? LoginSucceeded;
 
     /// <summary>联网模式变更。</summary>
     public event Action<ClientNetworkMode>? NetworkModeChanged;
@@ -169,6 +169,14 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
     private async Task LoginAsync()
     {
         ErrorMessage = string.Empty;
+
+        // 未开考+已连接：进入联网练习（不要求学号，不计成绩，仅上报状态供教师端巡视）。
+        if (!IsOfflineMode && !CanLogin && IsConnected)
+        {
+            LoginSucceeded?.Invoke(StudentId, PracticeMode.OnlinePractice);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(StudentId) || string.IsNullOrWhiteSpace(StudentName))
         {
             ErrorMessage = "请输入学号与姓名。";
@@ -177,7 +185,7 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
 
         if (IsOfflineMode)
         {
-            LoginSucceeded?.Invoke(StudentId, true);
+            LoginSucceeded?.Invoke(StudentId, PracticeMode.Offline);
             return;
         }
 
@@ -197,7 +205,7 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
                 AllowPracticeAfterSubmit = result.AllowPracticeAfterSubmit;
                 StatusText = "登录成功";
                 NetworkMode = ClientNetworkMode.Online;
-                LoginSucceeded?.Invoke(StudentId, false);
+                LoginSucceeded?.Invoke(StudentId, PracticeMode.Exam);
             }
             else
             {
@@ -242,7 +250,7 @@ public sealed partial class LoginPageViewModel : ViewModelBase, IDisposable
         IsConnected = true;
         NetworkMode = ClientNetworkMode.Online;
         StatusText = "已自动登录：" + studentId;
-        LoginSucceeded?.Invoke(studentId, false);
+        LoginSucceeded?.Invoke(studentId, PracticeMode.Exam);
     }
 
     private void ApplyHelloAck(Models.Dtos.HelloAckDto ack)

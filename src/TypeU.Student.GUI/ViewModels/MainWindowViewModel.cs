@@ -81,24 +81,31 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _ => "联网模式：未知"
     };
 
-    private void OnLoginSucceeded(string studentId, bool offline)
+    private void OnLoginSucceeded(string studentId, PracticeMode mode)
     {
-        if (offline)
+        switch (mode)
         {
-            NetworkMode = ClientNetworkMode.Offline;
-            NetworkModeText = FormatNetworkMode(NetworkMode);
-            LogoutLocked = false;
-            _exam.StartOfflinePractice(studentId);
-        }
-        else
-        {
-            NetworkMode = ClientNetworkMode.Online;
-            NetworkModeText = "联网模式：考试已登录";
-            LogoutLocked = true;
-            _exam.BeginOnlineExamSession(
-                studentId,
-                _login.LastMaxAttempts,
-                _login.LastAllowPractice);
+            case PracticeMode.Offline:
+                NetworkMode = ClientNetworkMode.Offline;
+                NetworkModeText = FormatNetworkMode(NetworkMode);
+                LogoutLocked = false;
+                _exam.StartOfflinePractice(studentId);
+                break;
+            case PracticeMode.OnlinePractice:
+                NetworkMode = ClientNetworkMode.Online;
+                NetworkModeText = FormatNetworkMode(NetworkMode);
+                LogoutLocked = false;
+                _exam.StartOnlinePractice(studentId);
+                break;
+            case PracticeMode.Exam:
+                NetworkMode = ClientNetworkMode.Online;
+                NetworkModeText = "联网模式：考试已登录";
+                LogoutLocked = true;
+                _exam.BeginOnlineExamSession(
+                    studentId,
+                    _login.LastMaxAttempts,
+                    _login.LastAllowPractice);
+                break;
         }
 
         CurrentPage = _exam;

@@ -69,6 +69,7 @@ public sealed partial class ExamPageViewModel : ViewModelBase, IDisposable
     private Guid _sessionId;
     private bool _disposed;
     private bool _isOfflineMode;
+    private bool _isOnlinePractice;
     private long _offlineEndTickMs;
     private bool _offlineSubmitted;
     private int _attemptIndex;
@@ -292,6 +293,7 @@ public sealed partial class ExamPageViewModel : ViewModelBase, IDisposable
     public void BeginOnlineExamSession(string studentId, int maxAttempts, bool allowPracticeAfterSubmit)
     {
         _isOfflineMode = false;
+        _isOnlinePractice = false;
         _offlineSubmitted = false;
         _submitting = false;
         _examSessionEnded = false;
@@ -316,6 +318,7 @@ public sealed partial class ExamPageViewModel : ViewModelBase, IDisposable
     public void StartOfflinePractice(string studentId)
     {
         _isOfflineMode = true;
+        _isOnlinePractice = false;
         _offlineSubmitted = false;
         _logoutLocked = false;
         _examSessionEnded = false;
@@ -342,6 +345,53 @@ public sealed partial class ExamPageViewModel : ViewModelBase, IDisposable
         _protection.LockForExam();
         StartDashboard();
         _logger?.LogInformation("已启动单机练习：学号 {StudentId}，时长 {Sec}s", _studentId, OfflineDurationSeconds);
+    }
+
+    /// <summary>
+    /// 启动联网练习：已连接未开考，上报状态供教师端巡视，不计成绩、不锁定退出。
+    /// </summary>
+    /// <param name="studentId">学号（本地展示用，可空）。</param>
+    public void StartOnlinePractice(string studentId)
+    {
+        _isOfflineMode = false;
+        _isOnlinePractice = true;
+        _offlineSubmitted = false;
+        _logoutLocked = false;
+        _examSessionEnded = false;
+        _studentId = studentId ?? string.Empty;
+        _sessionId = Guid.NewGuid();
+        _antiCheat.Reset();
+        CanRetryAttempt = false;
+
+        var question = new QuestionDto
+        {
+            QuestionId = Guid.NewGuid(),
+            Type = QuestionType.Chinese,
+            Content = OfflinePracticeText,
+            ExpectedContent = string.Empty,
+            Mode = ExamMode.TimedSprint,
+            Duration = OfflineDurationSeconds,
+            SessionId = _sessionId
+        };
+
+        ApplyQuestion(question, "原文（联网练习）");
+        ExamStateText = "联网练习进行中（未开考，不计成绩）";
+        IsExamRunning = true;
+        _offlineEndTickMs = Environment.TickCount64 + OfflineDurationSeconds * 1000L;
+        _protection.LockForExam();
+        StartDashboard();
+        _statusReport.Start(_studentId, _sessionId, GetSnapshot);
+        _logger?.LogInformation("已启动联网练习：学号 {StudentId}，时长 {Sec}s", _studentId, OfflineDurationSeconds);
+    }
+
+    /// <summary>
+    /// 设置退出锁定状态（断线重连后由外部按教师端开考状态调用）。
+    /// </summary>
+    /// <param name="locked">是否锁定退出。</param>
+    public void SetLogoutLock(bool locked)
+    {
+        _logoutLocked = locked;
+        LogoutLockChanged?.Invoke(locked);
     }
 
     /// <summary>
@@ -582,9 +632,11 @@ public sealed partial class ExamPageViewModel : ViewModelBase, IDisposable
             Progress = _typingTest.InputCount,
             TotalChars = _typingTest.TotalChars,
             IsMinimized = _isWindowMinimized,
-            ClientMode = _isOfflineMode
-                ? "单机"
-                : (_logoutLocked ? "考试中" : "在线"),
+            ClientMode = _isOnlinePractice
+                ? "联网练习"
+                : (_isOfflineMode
+                    ? "单机"
+                    : (_logoutLocked ? "考试中" : "在线")),
             DeviceFingerprint = _fingerprint?.GetFingerprint() ?? string.Empty
         };
     }
@@ -596,7 +648,9 @@ public sealed partial class ExamPageViewModel : ViewModelBase, IDisposable
 
     private Task OnPacketReceived(MessageType type, byte[] payload)
     {
-        if (_isOfflineMode)
+        // 联网练习与单机练习均不处理下行报文：联网练习不计成绩，避免考试包干扰练习；
+        // 状态上报为发送方向，不受此影响。开考后学生需退出练习回 LoginPage 登录。
+        if (_isOfflineMode || _isOnlinePractice)
         {
             return Task.CompletedTask;
         }
