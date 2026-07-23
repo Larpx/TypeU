@@ -97,6 +97,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _isTeacherIdentified;
 
     /// <summary>
+    /// 启动时是否选择立即开始考试（true 则确认身份后跳转考试控制页）。
+    /// </summary>
+    [ObservableProperty]
+    private bool _startExamNow;
+
+    /// <summary>
     /// 异常告警浮窗是否展开。
     /// </summary>
     [ObservableProperty]
@@ -145,6 +151,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _examService.TeacherId = TeacherId.Trim();
         _examService.TeacherName = TeacherName.Trim();
         IsTeacherIdentified = true;
+
+        // 选择立即开考则直接跳转考试控制页。
+        if (StartExamNow)
+        {
+            Navigate(TeacherPage.ExamControl);
+        }
     }
 
     /// <summary>

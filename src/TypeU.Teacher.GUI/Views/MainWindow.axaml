@@ -90,9 +90,14 @@
             <Border Classes="card" Width="420" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="32">
                 <StackPanel Spacing="12">
                     <TextBlock Text="教师身份确认" Classes="title" HorizontalAlignment="Center"/>
-                    <TextBlock Text="请输入工号与姓名后进入系统。开考后会话将持久化。" Classes="caption" TextWrapping="Wrap"/>
-                    <TextBox Text="{Binding TeacherId, Mode=TwoWay}" Watermark="教师工号"/>
-                    <TextBox Text="{Binding TeacherName, Mode=TwoWay}" Watermark="教师姓名"/>
+                    <TextBlock Text="请输入工号与姓名，并选择进入后是否立即开始考试。" Classes="caption" TextWrapping="Wrap"/>
+                    <TextBox Text="{Binding TeacherId, Mode=TwoWay}" PlaceholderText="教师工号"/>
+                    <TextBox Text="{Binding TeacherName, Mode=TwoWay}" PlaceholderText="教师姓名"/>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="进入后：" Classes="caption"/>
+                        <RadioButton Content="仅巡视（不开考，可查看学生状态）" GroupName="StartMode" IsChecked="{Binding !StartExamNow}"/>
+                        <RadioButton Content="立即开始考试（跳转开考配置）" GroupName="StartMode" IsChecked="{Binding StartExamNow}"/>
+                    </StackPanel>
                     <Button Content="进入教师端" Classes="primary" Command="{Binding ConfirmTeacherIdentityCommand}"
                             HorizontalAlignment="Stretch" Padding="0,12"/>
                 </StackPanel>
